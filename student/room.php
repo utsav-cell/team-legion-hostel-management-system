@@ -25,7 +25,7 @@ mysqli_stmt_close($stmt);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Room — HMS</title>
-    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/style.css?v=2">
 </head>
 <body>
 <?php echo render_sidebar('room.php'); ?>
@@ -39,19 +39,19 @@ mysqli_stmt_close($stmt);
         <!-- Status Banner -->
         <div style="padding:1.5rem; border-radius:16px; margin-bottom:2rem;
              background:<?= $room['room_status'] === 'approved'
-                 ? '#f0fdf4' : '#fffbeb' ?>;
+                 ? 'var(--success-soft)' : 'var(--warning-soft)' ?>;
              border:1px solid <?= $room['room_status'] === 'approved'
-                 ? '#dcfce7' : '#fef3c7' ?>;">
+                 ? 'var(--success-soft)' : 'var(--warning-soft)' ?>;">
             <div style="font-weight:800; font-size:1.125rem;
                          color:<?= $room['room_status'] === 'approved'
-                             ? '#166534' : '#92400e' ?>;">
+                             ? '#166534' : '#b45309' ?>;">
                 Status:
                 <?= $room['room_status'] === 'approved'
                     ? 'Confirmed' : 'Pending Approval' ?>
             </div>
             <div style="font-size:0.875rem; margin-top:0.25rem;
                          color:<?= $room['room_status'] === 'approved'
-                             ? '#166534' : '#92400e' ?>;">
+                             ? '#166534' : '#b45309' ?>;">
                 <?= $room['room_status'] === 'approved'
                     ? 'Your room has been confirmed. Welcome!'
                     : 'Your room is assigned and waiting for owner approval.' ?>
