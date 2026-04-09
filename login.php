@@ -3,7 +3,7 @@
 // login.php — Login, Registration and 2FA Verification
 // ─────────────────────────────────────────────────
 
-require_once 'dp.php';
+require_once 'db.php';
 
 // Redirect already logged in users
 $auth = get_auth();
