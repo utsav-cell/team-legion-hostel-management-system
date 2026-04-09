@@ -77,7 +77,7 @@ $stmt = mysqli_prepare($conn,
             r.id as room_id, r.room_number, r.room_type, r.floor,
             u.created_at
      FROM users u
-     LEFT JOIN rooms r ON r.status = 'available'
+     LEFT JOIN rooms r ON r.id = u.room_id
      WHERE u.role = 'student' AND u.room_status = 'pending'
      ORDER BY u.created_at DESC");
 mysqli_stmt_execute($stmt);
@@ -121,7 +121,7 @@ while ($r = mysqli_fetch_assoc($res)) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Room Requests — HMS</title>
-    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/style.css?v=2">
     <style>
         .request-card {
             background: var(--card);
@@ -179,11 +179,11 @@ while ($r = mysqli_fetch_assoc($res)) {
             text-transform: uppercase;
         }
         .badge-pending {
-            background: #fef3c7;
+            background: var(--warning-soft);
             color: #b45309;
         }
         .badge-approved {
-            background: #dcfce7;
+            background: var(--success-soft);
             color: #15803d;
         }
         .form-group-inline {

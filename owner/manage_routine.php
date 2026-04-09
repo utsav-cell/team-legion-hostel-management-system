@@ -1,5 +1,5 @@
 <?php
-require_once '../dp.php';
+require_once '../db.php';
 require_role('owner');
 
 if (isset($_POST['update_routine'])) {

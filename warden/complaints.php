@@ -3,7 +3,7 @@
 // warden/complaints.php — View and Update Complaints
 // ─────────────────────────────────────────────────
 
-require_once '../dp.php';
+require_once '../db.php';
 require_role('warden');
 
 $name    = $_SESSION['user_name'];

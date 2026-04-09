@@ -3,7 +3,7 @@
 // student/my_attendance.php — View My Attendance
 // ─────────────────────────────────────────────────
 
-require_once '../dp.php';
+require_once '../db.php';
 require_role('student');
 
 $uid  = (int)$_SESSION['user_id'];
