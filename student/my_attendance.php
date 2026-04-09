@@ -35,7 +35,7 @@ $pct    = $total > 0 ? round($present / $total * 100, 1) : 0;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Attendance — HMS</title>
-    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/style.css?v=2">
 </head>
 <body>
 <?php echo render_sidebar('my_attendance.php'); ?>
@@ -43,7 +43,7 @@ $pct    = $total > 0 ? round($present / $total * 100, 1) : 0;
     <div class="page-header">
         <h1>Attendance History</h1>
         <p>Tracking for <strong><?= e($name) ?></strong> &mdash;
-           <span style="color:<?= $pct >= 75 ? '#16a34a' : '#be123c' ?>;
+           <span style="color:<?= $pct >= 75 ? 'var(--success)' : 'var(--danger-strong)' ?>;
                         font-weight:700;">
                <?= $pct >= 75 ? 'Good Standing' : 'Below 75% — Action Required' ?>
            </span>
@@ -58,16 +58,16 @@ $pct    = $total > 0 ? round($present / $total * 100, 1) : 0;
         </div>
         <div class="stat-box">
             <div class="stat-label">Present</div>
-            <div class="stat-value" style="color:#16a34a;"><?= $present ?></div>
+            <div class="stat-value" style="color:var(--success);"><?= $present ?></div>
         </div>
         <div class="stat-box">
             <div class="stat-label">Absent</div>
-            <div class="stat-value" style="color:#be123c;"><?= $absent ?></div>
+            <div class="stat-value" style="color:var(--danger-strong);"><?= $absent ?></div>
         </div>
         <div class="stat-box">
             <div class="stat-label">Overall Rate</div>
             <div class="stat-value"
-                 style="color:<?= $pct >= 75 ? '#4338ca' : '#be123c' ?>;">
+                 style="color:<?= $pct >= 75 ? 'var(--brand)' : 'var(--danger-strong)' ?>;">
                 <?= $pct ?>%
             </div>
         </div>
@@ -81,7 +81,7 @@ $pct    = $total > 0 ? round($present / $total * 100, 1) : 0;
         <div style="background:#eef2f7; border-radius:999px; height:12px;
                      overflow:hidden; margin:1rem 0;">
             <div style="height:100%; background:<?= $pct >= 75
-                ? 'var(--brand)' : '#ef4444' ?>;
+                ? 'var(--brand)' : 'var(--danger-strong)' ?>;
                          width:<?= $pct ?>%; border-radius:999px;"></div>
         </div>
         <p style="color:var(--text-muted); font-size:0.875rem;">

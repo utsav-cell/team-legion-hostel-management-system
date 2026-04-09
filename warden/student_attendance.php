@@ -133,18 +133,18 @@ $marked_count   = count($today_att);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mark Attendance — HMS</title>
-    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/style.css?v=2">
     <style>
-        .att-toggle { display:flex; gap:4px; background:#f1f5f9;
+        .att-toggle { display:flex; gap:4px; background:var(--panel-alt);
                        padding:4px; border-radius:8px; }
         .att-toggle label { padding:6px 14px; border-radius:6px;
                              cursor:pointer; font-size:0.8rem;
                              font-weight:700; transition:0.2s; }
         .att-toggle input { display:none; }
         .att-toggle label.present:has(input:checked) {
-            background:#10b981; color:#fff; }
+            background:var(--success); color:#fff; }
         .att-toggle label.absent:has(input:checked) {
-            background:#ef4444; color:#fff; }
+            background:var(--danger-strong); color:#fff; }
     </style>
 </head>
 <body>
@@ -169,7 +169,7 @@ $marked_count   = count($today_att);
         </div>
         <div class="stat-box">
             <div class="stat-label">Marked</div>
-            <div class="stat-value" style="color:#4f46e5;">
+            <div class="stat-value" style="color: var(--brand-dark);">
                 <?= $marked_count ?>
             </div>
         </div>
@@ -190,9 +190,9 @@ $marked_count   = count($today_att);
                         style="font-size:0.75rem;">
                     Mark All Present
                 </button>
-                <button type="button" class="btn btn-secondary"
-                        onclick="markAll('absent')"
-                        style="font-size:0.75rem; color:#be123c;">
+                    <button type="button" class="btn btn-secondary"
+                            onclick="markAll('absent')"
+                        style="font-size:0.75rem; color:var(--danger-strong);">
                     Mark All Absent
                 </button>
             </div>
@@ -256,7 +256,7 @@ $marked_count   = count($today_att);
                         </td>
                         <td id="save-<?= $sid ?>">
                             <?php if ($current): ?>
-                                <span style="color:#16a34a;
+                                <span style="color:var(--success);
                                               font-size:0.8rem;
                                               font-weight:700;">
                                     ✓ Saved
@@ -290,7 +290,7 @@ document.querySelectorAll('.att-radio').forEach(function(radio) {
         var csrf  = document.getElementById('csrf-val').value;
         var statusEl = document.getElementById('save-' + sid);
 
-        statusEl.innerHTML = '<span style="color:#64748b;">Saving...</span>';
+        statusEl.innerHTML = '<span style="color:var(--muted);">Saving...</span>';
 
         fetch('student_attendance.php', {
             method: 'POST',
@@ -302,11 +302,11 @@ document.querySelectorAll('.att-radio').forEach(function(radio) {
         .then(function(r) { return r.json(); })
         .then(function(d) {
             statusEl.innerHTML = d.success
-                ? '<span style="color:#16a34a;font-size:0.8rem;font-weight:700;">✓ Saved</span>'
-                : '<span style="color:#be123c;font-size:0.8rem;">✗ Error</span>';
+                ? '<span style="color:var(--success);font-size:0.8rem;font-weight:700;">✓ Saved</span>'
+                : '<span style="color:var(--danger-strong);font-size:0.8rem;">✗ Error</span>';
         })
         .catch(function() {
-            statusEl.innerHTML = '<span style="color:#be123c;font-size:0.8rem;">✗ Error</span>';
+            statusEl.innerHTML = '<span style="color:var(--danger-strong);font-size:0.8rem;">✗ Error</span>';
         });
     });
 });
