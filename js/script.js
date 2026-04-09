@@ -1,79 +1,70 @@
- // Hostel Management System — Main JS
-
-document.addEventListener('DOMContentLoaded', function () {
-
-    // 1. Sidebar highlight logic
-    const path = window.location.pathname;
-    document.querySelectorAll('.navbar-nav a').forEach(function (a) {
-        if (path.endsWith(a.getAttribute('href'))) a.classList.add('active');
-    });
-
-    // 2. Auto-dismiss alerts after 4s
-    document.querySelectorAll('.alert').forEach(function (el) {
-        setTimeout(function () {
-            el.style.transition = 'opacity .5s, transform .5s';
-            el.style.opacity = '0';
-            el.style.transform = 'translateY(-10px)';
-            setTimeout(function () { el.remove(); }, 500);
-        }, 4000);
-    });
-
-    // 3. Password visibility toggle (Login/Register)
-    document.querySelectorAll('.toggle-pwd').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            const inp = document.getElementById(this.dataset.target);
-            if (!inp) return;
-            const isText = inp.type === 'text';
-            inp.type = isText ? 'password' : 'text';
-            this.textContent = isText ? 'Show' : 'Hide';
-            this.style.color = isText ? 'var(--text-muted)' : 'var(--brand)';
-        });
-    });
-
-    // 4. AJAX Email availability check (register page)
-    const emailInput = document.querySelector('input[name="email"][type="email"]');
-    const registerBtn = document.querySelector('button[type="submit"]');
-    if (emailInput && registerBtn && document.getElementById('action')?.value === 'register') {
-        let timer;
-        const msgDiv = document.createElement('div');
-        msgDiv.style.fontSize = '0.75rem';
-        msgDiv.style.marginTop = '0.25rem';
-        emailInput.parentNode.appendChild(msgDiv);
-
-        emailInput.addEventListener('input', function () {
-            clearTimeout(timer);
-            const val = this.value.trim();
-            if (!val || !val.includes('@')) { msgDiv.textContent = ''; return; }
-            msgDiv.textContent = 'Checking…';
-            msgDiv.style.color = 'var(--text-muted)';
-            timer = setTimeout(function () {
-                const fd = new FormData();
-                fd.append('email', val);
-                // Note: You would normally have an ajax/check_email.php. 
-                // For now, we rely on the main form's error handling if not present.
-            }, 500);
-        });
+document.addEventListener('DOMContentLoaded', () => {
+    const sidebar = document.querySelector('.sidebar');
+    const toggle = document.querySelector('.sidebar-toggle');
+    if (toggle && sidebar) {
+        toggle.addEventListener('click', () => sidebar.classList.toggle('open'));
     }
 
-    // 5. Disable submit while form posts
-    document.querySelectorAll('form').forEach(function (form) {
-        form.addEventListener('submit', function () {
-            const btn = form.querySelector('button[type="submit"]');
-            if (btn) { btn.disabled = true; btn.style.opacity = '0.7'; btn.textContent = 'Processing…'; }
+    document.querySelectorAll('.alert').forEach((el) => {
+        setTimeout(() => {
+            el.style.transition = 'opacity .4s ease, transform .4s ease';
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(-10px)';
+            setTimeout(() => el.remove(), 450);
+        }, 4500);
+    });
+
+    document.querySelectorAll('[data-count]').forEach((el) => {
+        const target = Number(el.dataset.count || 0);
+        const duration = 900;
+        const start = performance.now();
+        const decimals = (el.dataset.decimals || '').length;
+        const prefix = el.dataset.prefix || '';
+        const suffix = el.dataset.suffix || '';
+        const step = (now) => {
+            const progress = Math.min((now - start) / duration, 1);
+            const value = target * (1 - Math.pow(1 - progress, 3));
+            const formatted = Number(value).toFixed(decimals).replace(/\.0+$/, '');
+            el.textContent = `${prefix}${formatted}${suffix}`;
+            if (progress < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+    });
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+            if (entry.isIntersecting) entry.target.classList.add('is-visible');
+        });
+    }, { threshold: 0.12 });
+    document.querySelectorAll('[data-reveal]').forEach((node) => observer.observe(node));
+
+    document.querySelectorAll('.toggle-pwd').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const input = document.getElementById(btn.dataset.target || btn.getAttribute('onclick')?.match(/'([^']+)'/)?.[1]);
+            if (!input) return;
+            input.type = input.type === 'password' ? 'text' : 'password';
+            btn.textContent = input.type === 'password' ? 'Show' : 'Hide';
         });
     });
 
-    // 6. Student search (warden student list)
+    document.querySelectorAll('form').forEach((form) => {
+        form.addEventListener('submit', () => {
+            const btn = form.querySelector('button[type="submit"]');
+            if (!btn || btn.dataset.noBusy === 'true') return;
+            btn.dataset.originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.style.opacity = '0.8';
+            btn.innerHTML = 'Processing...';
+        });
+    });
+
     const searchInput = document.getElementById('student-search');
     if (searchInput) {
-        searchInput.addEventListener('input', function () {
-            const q = this.value.toLowerCase();
-            const rows = document.querySelectorAll('table tbody tr');
-            rows.forEach(function (row) {
-                const text = row.textContent.toLowerCase();
-                row.style.display = text.includes(q) ? '' : 'none';
+        searchInput.addEventListener('input', () => {
+            const q = searchInput.value.toLowerCase().trim();
+            document.querySelectorAll('table tbody tr').forEach((row) => {
+                row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
             });
         });
     }
-
 });
