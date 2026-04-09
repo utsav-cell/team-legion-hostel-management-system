@@ -82,7 +82,7 @@ while ($d = mysqli_fetch_assoc($dr)) $dates[] = $d['date'];
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Attendance Report — HMS</title>
-    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/style.css?v=2">
     <style>
         @media print {
             .no-print { display:none !important; }
@@ -113,7 +113,7 @@ while ($d = mysqli_fetch_assoc($dr)) $dates[] = $d['date'];
         </div>
         <div class="stat-box">
             <div class="stat-label">Absent</div>
-            <div class="stat-value" style="color:#ef4444;">
+            <div class="stat-value" style="color:var(--danger-strong);">
                 <?= $absent ?>
             </div>
         </div>
