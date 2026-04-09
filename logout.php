@@ -3,7 +3,7 @@
 // logout.php — Clear session and cookie then redirect
 // ─────────────────────────────────────────────────
 
-require_once 'dp.php';
+require_once 'db.php';
 
 $auth = get_auth();
 if ($auth) {
