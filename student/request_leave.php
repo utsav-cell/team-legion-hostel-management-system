@@ -1,5 +1,5 @@
 <?php
-require_once '../dp.php';
+require_once '../db.php';
 require_role('student');
 
 $auth = get_auth();

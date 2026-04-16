@@ -3,7 +3,7 @@
 // owner/report_attendance.php — Full Attendance Report
 // ─────────────────────────────────────────────────
 
-require_once '../dp.php';
+require_once '../db.php';
 require_role('owner');
 
 $name = $_SESSION['user_name'];

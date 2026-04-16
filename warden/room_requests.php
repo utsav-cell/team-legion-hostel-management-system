@@ -3,7 +3,7 @@
 // warden/room_requests.php — Room Request Management
 // ─────────────────────────────────────────────────
 
-require_once '../dp.php';
+require_once '../db.php';
 require_role('warden');
 
 $uid = (int)$_SESSION['user_id'];

@@ -3,7 +3,7 @@
 // student/room.php — View My Room Details
 // ─────────────────────────────────────────────────
 
-require_once '../dp.php';
+require_once '../db.php';
 require_role('student');
 
 $uid = (int)$_SESSION['user_id'];

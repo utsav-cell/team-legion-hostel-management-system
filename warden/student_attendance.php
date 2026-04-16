@@ -4,7 +4,7 @@
 // Supports AJAX auto-save per student
 // ─────────────────────────────────────────────────
 
-require_once '../dp.php';
+require_once '../db.php';
 require_role('warden');
 
 $name  = $_SESSION['user_name'];

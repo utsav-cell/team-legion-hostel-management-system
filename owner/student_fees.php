@@ -1,5 +1,5 @@
 <?php
-require_once '../dp.php';
+require_once '../db.php';
 require_role('owner');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_fee'])) {
@@ -74,5 +74,5 @@ $active = 'student_fees.php';
         </table>
     </div>
 </div>
-</body>
+</body> 
 </html>

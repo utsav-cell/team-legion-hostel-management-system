@@ -1,7 +1,7 @@
 <?php
 session_start();
 
-require_once '../dp.php';
+require_once '../db.php';
 require_role('student');
 
 $name  = $_SESSION['user_name'];
