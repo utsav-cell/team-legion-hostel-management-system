@@ -102,6 +102,9 @@ if (!mysqli_query($conn, "SELECT token_version FROM users LIMIT 1")) {
 if (!mysqli_query($conn, "SELECT fee_status FROM users LIMIT 1")) {
     mysqli_query($conn, "ALTER TABLE users ADD COLUMN fee_status ENUM('paid','unpaid') DEFAULT 'unpaid' AFTER room_preference");
 }
+if (!mysqli_query($conn, "SELECT is_confirmed_viewed FROM users LIMIT 1")) {
+    mysqli_query($conn, "ALTER TABLE users ADD COLUMN is_confirmed_viewed TINYINT(1) DEFAULT 1 AFTER room_status");
+}
 
 mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `enquiries` (
   `id` INT(11) NOT NULL AUTO_INCREMENT,

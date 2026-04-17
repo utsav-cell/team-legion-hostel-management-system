@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `student_phone`    VARCHAR(20)  DEFAULT NULL,
   `room_id`          INT(11)      DEFAULT NULL,
   `room_status`      ENUM('pending','approved') DEFAULT 'pending',
+  `is_confirmed_viewed` TINYINT(1) DEFAULT 1,
   `room_preference`  VARCHAR(100) DEFAULT 'No Preference',
   `fee_status`       ENUM('paid','unpaid') DEFAULT 'unpaid',
   `created_at`       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,

@@ -23,9 +23,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception('Invalid student or room.');
             }
             
-            // Update student's room_status and assign room
+            // Update student's room_status, assign room and mark confirmation banner as unseen
             $stmt = mysqli_prepare($conn,
-                "UPDATE users SET room_id = ?, room_status = 'approved'
+                "UPDATE users SET room_id = ?, room_status = 'approved', is_confirmed_viewed = 0
                  WHERE id = ? AND role = 'student'");
             mysqli_stmt_bind_param($stmt, 'ii', $room_id, $student_id);
             

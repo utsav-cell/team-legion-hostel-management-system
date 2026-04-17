@@ -78,24 +78,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception('This email is already registered.');
             }
 
-            $photo_name = 'default.png';
-            if (!empty($_FILES['photo']['name'])) {
-                $ext = strtolower(pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION));
-                if (!in_array($ext, ['jpg', 'jpeg', 'png'])) throw new Exception('Only JPG/PNG allowed.');
-                $photo_name = 'user_' . time() . '.' . $ext;
-                if (!move_uploaded_file($_FILES['photo']['tmp_name'], 'uploads/students/' . $photo_name)) {
-                    throw new Exception('Failed to upload photo.');
-                }
-            }
-
             $hash = password_hash($pass, PASSWORD_DEFAULT);
 
             $ins = $pdo->prepare(
-                'INSERT INTO users (name, email, student_phone, password, role, room_preference, photo, is_verified)
-                 VALUES (?, ?, ?, ?, \'student\', ?, ?, 1)'
+                'INSERT INTO users (name, email, student_phone, password, role, room_preference, is_verified)
+                 VALUES (?, ?, ?, ?, \'student\', ?, 1)'
             );
 
-            if ($ins->execute([$name, $email, $phone, $hash, $pref, $photo_name])) {
+            if ($ins->execute([$name, $email, $phone, $hash, $pref])) {
                 $res['success'] = true;
                 $res['message'] = "Account created successfully! You can now log in.";
                 $res['redirect'] = "?mode=login";
@@ -160,7 +150,7 @@ $verify_email = $_GET['email'] ?? '';
         <?php if ($error): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
         <?php if ($success): ?><div class="alert alert-success"><?= e($success) ?></div><?php endif; ?>
 
-        <form method="post" enctype="multipart/form-data">
+        <form method="post">
                 <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
                 <input type="hidden" id="action" name="action" value="<?= $mode === 'login' ? 'login' : 'register' ?>">
 
@@ -179,11 +169,6 @@ $verify_email = $_GET['email'] ?? '';
                                 <option value="Double">Double</option>
                             </select>
                         </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Profile Photo</label>
-                        <input name="photo" type="file" required accept="image/*">
-                        <small style="color:var(--text-muted);">Please upload a clear face photo</small>
                     </div>
                 <?php else: ?>
                     <div class="form-group"><label>Email Address</label><input name="email" type="email" required></div>
