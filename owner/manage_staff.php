@@ -54,7 +54,7 @@ $active = 'manage_staff.php';
 </head>
 <body>
 <?php echo render_sidebar($active); ?>
-<div class="container">
+<div class="container staff-page">
     <div class="page-header" style="background: #fff; padding: 3rem; border-radius: var(--radius-lg); margin-bottom: 2rem; border: 1px solid var(--border); box-shadow: var(--shadow-sm);">
         <h1 style="color: var(--text); font-weight: 900; letter-spacing: -0.05em;">Staff & Resource Allocation</h1>
         <p style="color: var(--text-muted); font-weight: 600;">Manage deployments for cleaners, cooks, and support staff</p>
@@ -85,8 +85,9 @@ $active = 'manage_staff.php';
                     <option value="General">Main Gate / General</option>
                 </select>
             </div>
-            <button type="submit" name="add_staff" class="btn btn-success" style="padding: 0.8rem 1.5rem; height: 100%;">
-                + Add Staff
+            <button type="submit" name="add_staff" class="btn btn-success btn-medium">
+                <span class="btn-icon">+</span>
+                <span>Add Staff</span>
             </button>
         </form>
     </div>
@@ -104,15 +105,15 @@ $active = 'manage_staff.php';
                 <form method="post" style="border-top: 1px solid var(--border); pt: 1.5rem; margin-top: 1rem; padding-top: 1.5rem;">
                     <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
                     <input type="hidden" name="staff_id" value="<?= $s['id'] ?>">
-                    <div style="display: flex; gap: 0.5rem;">
-                        <select name="new_area" class="form-control" style="flex: 1; border-radius: 12px; font-size: 0.8125rem;">
+                    <div class="staff-relocate-row">
+                        <select name="new_area" class="form-control staff-select">
                             <option value="Room" <?= $s['allocation'] == 'Room' ? 'selected' : '' ?>>Room Area</option>
                             <option value="Canteen" <?= $s['allocation'] == 'Canteen' ? 'selected' : '' ?>>Canteen</option>
                             <option value="Toilets" <?= $s['allocation'] == 'Toilets' ? 'selected' : '' ?>>Toilets</option>
                             <option value="Garden" <?= $s['allocation'] == 'Garden' ? 'selected' : '' ?>>Garden</option>
                             <option value="General" <?= $s['allocation'] == 'General' ? 'selected' : '' ?>>Main Gate / General</option>
                         </select>
-                        <button type="submit" name="relocate_staff" class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 0.75rem;">Relocate</button>
+                        <button type="submit" name="relocate_staff" class="btn btn-primary btn-medium">Relocate</button>
                     </div>
                 </form>
             </div>
