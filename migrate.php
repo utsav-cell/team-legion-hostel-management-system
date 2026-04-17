@@ -14,7 +14,8 @@ $queries = [
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
 
     "ALTER TABLE `users` ADD COLUMN `otp_code` VARCHAR(6) DEFAULT NULL AFTER `password`;",
-    "ALTER TABLE `users` ADD COLUMN `is_verified` TINYINT(1) DEFAULT 0 AFTER `otp_code`;"
+    "ALTER TABLE `users` ADD COLUMN `is_verified` TINYINT(1) DEFAULT 0 AFTER `otp_code`;",
+    "ALTER TABLE `users` ADD COLUMN `is_confirmed_viewed` TINYINT(1) DEFAULT 1 AFTER `room_status`;"
 ];
 
 foreach ($queries as $q) {

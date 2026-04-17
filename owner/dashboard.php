@@ -8,8 +8,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_room'])) {
     $sid = (int)$_POST['student_id'];
     $rid = (int)$_POST['room_id'];
     
-    // Set status to approved in users
-    mysqli_query($conn, "UPDATE users SET room_status = 'approved' WHERE id = $sid");
+    // Set status to approved in users and mark confirmation banner as unseen
+    mysqli_query($conn, "UPDATE users SET room_status = 'approved', is_confirmed_viewed = 0 WHERE id = $sid");
     // Set room to occupied in rooms
     mysqli_query($conn, "UPDATE rooms SET status = 'occupied', is_approved = 1 WHERE id = $rid");
     

@@ -10,14 +10,26 @@ $uid = (int)$_SESSION['user_id'];
 
 // Get room details — prepared statement
 $stmt = mysqli_prepare($conn,
-    "SELECT r.room_number, r.room_type, r.floor, u.room_status
+    "SELECT r.room_number, r.room_type, r.floor, u.room_status, u.is_confirmed_viewed
      FROM users u
      LEFT JOIN rooms r ON r.id = u.room_id
      WHERE u.id = ? LIMIT 1");
+if (!$stmt) {
+    die('Database prepare failed: ' . htmlspecialchars(mysqli_error($conn), ENT_QUOTES, 'UTF-8'));
+}
 mysqli_stmt_bind_param($stmt, 'i', $uid);
 mysqli_stmt_execute($stmt);
 $room = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
 mysqli_stmt_close($stmt);
+
+$show_banner = $room && $room['room_status'] === 'approved' && !$room['is_confirmed_viewed'];
+if ($show_banner) {
+    $update = mysqli_prepare($conn,
+        "UPDATE users SET is_confirmed_viewed = 1 WHERE id = ?");
+    mysqli_stmt_bind_param($update, 'i', $uid);
+    mysqli_stmt_execute($update);
+    mysqli_stmt_close($update);
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -36,27 +48,31 @@ mysqli_stmt_close($stmt);
     </div>
 
     <?php if ($room && $room['room_number']): ?>
-        <!-- Status Banner -->
-        <div style="padding:1.5rem; border-radius:16px; margin-bottom:2rem;
-             background:<?= $room['room_status'] === 'approved'
-                 ? 'var(--success-soft)' : 'var(--warning-soft)' ?>;
-             border:1px solid <?= $room['room_status'] === 'approved'
-                 ? 'var(--success-soft)' : 'var(--warning-soft)' ?>;">
-            <div style="font-weight:800; font-size:1.125rem;
-                         color:<?= $room['room_status'] === 'approved'
-                             ? '#166534' : '#b45309' ?>;">
-                Status:
-                <?= $room['room_status'] === 'approved'
-                    ? 'Confirmed' : 'Pending Approval' ?>
+        <?php if ($room['room_status'] === 'pending'): ?>
+            <!-- Pending Approval Banner -->
+            <div style="padding:1.5rem; border-radius:16px; margin-bottom:2rem;
+                 background: var(--warning-soft);
+                 border:1px solid var(--warning-soft);">
+                <div style="font-weight:800; font-size:1.125rem; color:#b45309;">
+                    Status: Pending Approval
+                </div>
+                <div style="font-size:0.875rem; margin-top:0.25rem; color:#b45309;">
+                    Your room is assigned and waiting for owner approval.
+                </div>
             </div>
-            <div style="font-size:0.875rem; margin-top:0.25rem;
-                         color:<?= $room['room_status'] === 'approved'
-                             ? '#166534' : '#b45309' ?>;">
-                <?= $room['room_status'] === 'approved'
-                    ? 'Your room has been confirmed. Welcome!'
-                    : 'Your room is assigned and waiting for owner approval.' ?>
+        <?php elseif ($show_banner): ?>
+            <!-- Confirmed Banner -->
+            <div style="padding:1.5rem; border-radius:16px; margin-bottom:2rem;
+                 background: var(--success-soft);
+                 border:1px solid var(--success-soft);">
+                <div style="font-weight:800; font-size:1.125rem; color:#166534;">
+                    Status: Confirmed
+                </div>
+                <div style="font-size:0.875rem; margin-top:0.25rem; color:#166534;">
+                    Your room has been confirmed. Welcome!
+                </div>
             </div>
-        </div>
+        <?php endif; ?>
 
         <!-- Room Info Cards -->
         <div class="stats-grid">
