@@ -344,34 +344,53 @@ function require_role($role) {
 }
 
 // Render top navigation sidebar
+function get_svg_icon($name) {
+    $icons = [
+        'home' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l9-9 9 9M5 11v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8"/></svg>',
+        'bed' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7M4 12h16M4 7h16v4H4z"/></svg>',
+        'clipboard' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h-2V2h-4v2H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><path d="M9 11h6M9 15h6"/></svg>',
+        'calendar' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"/><path d="M16 2v4M8 2v4M3 10h18M7 14h1M12 14h1M17 14h1M7 18h1M12 18h1M17 18h1"/></svg>',
+        'door' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6a2 2 0 0 0 0 4h18a2 2 0 0 0 0-4H3z"/><path d="M3 10v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-10"/><circle cx="17" cy="16" r="1" fill="currentColor"/></svg>',
+        'alert' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 20h20L12 2z"/><path d="M12 9v4M12 17h.01"/></svg>',
+        'key' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="15" r="3"/><path d="M13.172 5.172a4 4 0 0 0-5.656 0l-6 6a4 4 0 1 0 5.656 5.656l6-6"/></svg>',
+        'checkmark' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>',
+        'chart' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18M3 12v6M3 6v6M12 3v18"/><rect x="6" y="9" width="2" height="9"/><rect x="10" y="6" width="2" height="12"/><rect x="14" y="3" width="2" height="15"/></svg>',
+        'money' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M9 11h6"/><path d="M15 15H9M15 9h-6"/></svg>',
+        'message' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+        'users' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+        'trending' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>',
+    ];
+    return $icons[$name] ?? '';
+}
+
 function render_sidebar($active_page) {
     $auth = get_auth();
     if (!$auth) return '';
 
     $menus = [
         'student' => [
-            ['href' => 'dashboard.php',     'label' => 'Dashboard'],
-            ['href' => 'room.php',          'label' => 'My Room'],
-            ['href' => 'my_attendance.php', 'label' => 'Attendance'],
-            ['href' => 'my_routine.php',    'label' => 'Daily Routine'],
-            ['href' => 'request_leave.php', 'label' => 'Request Leave'],
-            ['href' => 'my_complaints.php', 'label' => 'Complaints'],
+            ['href' => 'dashboard.php',     'label' => 'Dashboard', 'icon' => 'home'],
+            ['href' => 'room.php',          'label' => 'My Room', 'icon' => 'bed'],
+            ['href' => 'my_attendance.php', 'label' => 'Attendance', 'icon' => 'clipboard'],
+            ['href' => 'my_routine.php',    'label' => 'Daily Routine', 'icon' => 'calendar'],
+            ['href' => 'request_leave.php', 'label' => 'Request Leave', 'icon' => 'door'],
+            ['href' => 'my_complaints.php', 'label' => 'Complaints', 'icon' => 'alert'],
         ],
         'warden' => [
-            ['href' => 'dashboard.php',          'label' => 'Dashboard'],
-            ['href' => 'room_requests.php',      'label' => 'Manage Rooms'],
-            ['href' => 'student_attendance.php', 'label' => 'Mark Attendance'],
-            ['href' => 'manage_leaves.php',      'label' => 'Student Leaves'],
-            ['href' => 'complaints.php',         'label' => 'Complaints'],
+            ['href' => 'dashboard.php',          'label' => 'Dashboard', 'icon' => 'home'],
+            ['href' => 'room_requests.php',      'label' => 'Manage Rooms', 'icon' => 'key'],
+            ['href' => 'student_attendance.php', 'label' => 'Mark Attendance', 'icon' => 'checkmark'],
+            ['href' => 'manage_leaves.php',      'label' => 'Student Leaves', 'icon' => 'door'],
+            ['href' => 'complaints.php',         'label' => 'Complaints', 'icon' => 'alert'],
         ],
         'owner' => [
-            ['href' => 'dashboard.php',         'label' => 'Dashboard'],
-            ['href' => 'enquiries.php',         'label' => 'Enquiries'],
-            ['href' => 'manage_routine.php',    'label' => 'Manage Routine'],
-            ['href' => 'manage_staff.php',      'label' => 'Manage Staff'],
-            ['href' => 'manage_leaves.php',     'label' => 'Student Leaves'],
-            ['href' => 'student_fees.php',      'label' => 'Fee Tracking'],
-            ['href' => 'report_attendance.php', 'label' => 'Attendance Report'],
+            ['href' => 'dashboard.php',         'label' => 'Dashboard', 'icon' => 'chart'],
+            ['href' => 'enquiries.php',         'label' => 'Enquiries', 'icon' => 'message'],
+            ['href' => 'manage_routine.php',    'label' => 'Manage Routine', 'icon' => 'calendar'],
+            ['href' => 'manage_staff.php',      'label' => 'Manage Staff', 'icon' => 'users'],
+            ['href' => 'manage_leaves.php',     'label' => 'Student Leaves', 'icon' => 'door'],
+            ['href' => 'student_fees.php',      'label' => 'Fee Tracking', 'icon' => 'money'],
+            ['href' => 'report_attendance.php', 'label' => 'Attendance Report', 'icon' => 'trending'],
         ]
     ];
 
@@ -386,7 +405,9 @@ function render_sidebar($active_page) {
     $html .= '<ul class="sidebar-menu">';
     foreach ($role_menu as $m) {
         $active = ($active_page == $m['href']) ? 'class="active"' : '';
-        $html .= '<li><a href="' . $m['href'] . '" ' . $active . '>' . $m['label'] . '</a></li>';
+        $icon_name = $m['icon'] ?? 'home';
+        $icon_svg = get_svg_icon($icon_name);
+        $html .= '<li><a href="' . $m['href'] . '" ' . $active . '><span class="menu-icon">' . $icon_svg . '</span>' . $m['label'] . '</a></li>';
     }
     $html .= '<li class="sidebar-spacer"></li>';
     $html .= '<li><span class="sidebar-user">' . e($auth['name']) . '</span></li>';
