@@ -4,6 +4,7 @@
 // ─────────────────────────────────────────────────
 
 require_once 'db.php';
+require_once 'mailer.php';
 
 // Redirect already logged in users
 $auth = get_auth();
@@ -44,6 +45,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$u || !password_verify($pass, $u['password'])) {
                 throw new Exception('Invalid email or password.');
             }
+            if (!(int)$u['is_verified']) {
+                throw new Exception('Please verify your email using the OTP sent to you.');
+            }
 
             set_auth($u);
             $res['success']  = true;
@@ -80,15 +84,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $hash = password_hash($pass, PASSWORD_DEFAULT);
 
+            $otp = (string) random_int(100000, 999999);
+            $otp_expiry = date('Y-m-d H:i:s', time() + 600);
+
             $ins = $pdo->prepare(
-                'INSERT INTO users (name, email, student_phone, password, role, room_preference, is_verified)
-                 VALUES (?, ?, ?, ?, \'student\', ?, 1)'
+                'INSERT INTO users (name, email, student_phone, password, role, room_preference, is_verified, otp_code, otp_expiry)
+                 VALUES (?, ?, ?, ?, \'student\', ?, 0, ?, ?)'
             );
 
-            if ($ins->execute([$name, $email, $phone, $hash, $pref])) {
+            if ($ins->execute([$name, $email, $phone, $hash, $pref, $otp, $otp_expiry])) {
+                $safe_name = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
+                $email_sent = false;
+                try {
+                    $safe_otp = htmlspecialchars($otp, ENT_QUOTES, 'UTF-8');
+                    $body = "<p>Hi {$safe_name},</p>"
+                        . "<p>Use this OTP to verify your email address:</p>"
+                        . "<h2 style=\"letter-spacing:2px;\">{$safe_otp}</h2>"
+                        . "<p>This code expires in 10 minutes.</p>";
+                    send_app_mail($email, $name, 'Verify your email - HMS', $body);
+                    $email_sent = true;
+                } catch (Exception $mail_ex) {
+                    $email_sent = false;
+                }
+
                 $res['success'] = true;
-                $res['message'] = "Account created successfully! You can now log in.";
-                $res['redirect'] = "?mode=login";
+                $res['message'] = $email_sent
+                    ? "Account created! Check your email for the OTP to verify your account."
+                    : "Account created! OTP email could not be sent. Please contact admin.";
+                $res['redirect'] = "verify.php?email=" . urlencode($email);
             } else {
                 throw new Exception('Registration failed.');
             }

@@ -20,10 +20,12 @@ team-legion-hostel-management-system/
 ├── index.php                   → Redirects to landing page
 ├── home/index.php              → Public landing + enquiry form
 ├── login.php                   → Login + student registration
-├── forget_password.php         → Password reset request (disabled message)
+├── forgot_password.php         → Password reset request (disabled message)
 ├── logout.php                  → Logout + token revoke
 ├── db.php                      → DB config + auth + CSRF + helpers + auto-migrations
-├── config.example.php          → Sample local config
+├── config/
+│   ├── config.example.php      → Sample local config
+│   └── config.php              → Local config (ignored)
 ├── database_schema.sql         → Database schema + seed data
 ├── migrate.php                 → One-time migration helper (self-deletes)
 ├── populate_data.php           → Optional extra seed data
@@ -77,7 +79,7 @@ mysql -u root -p < database_schema.sql
 This creates the `hostel2` database with tables and demo data.
 
 ### 2. Configure DB credentials
-- Copy [config.example.php](config.example.php) to [config.php](config.php)
+- Copy [config/config.example.php](config/config.example.php) to [config/config.php](config/config.php)
 - Update credentials and JWT secret
 
 ### 3. Run (XAMPP / WAMP / Laragon)
@@ -161,5 +163,5 @@ This creates the `hostel2` database with tables and demo data.
 
 ## Troubleshooting
 
-- If you see a database error screen, update credentials in [config.php](config.php) and import [database_schema.sql](database_schema.sql)
+- If you see a database error screen, update credentials in [config/config.php](config/config.php) and import [database_schema.sql](database_schema.sql)
 - Ensure Apache + MySQL are running in your local stack

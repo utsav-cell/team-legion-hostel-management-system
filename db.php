@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────────
 
 $localConfig = [];
-$configPath = __DIR__ . '/config.php';
+$configPath = __DIR__ . '/config/config.php';
 if (file_exists($configPath)) {
     $loaded = require $configPath;
     if (is_array($loaded)) {
@@ -58,7 +58,7 @@ if (!$conn) {
             <ul>
                 <li>Start Apache and MySQL in XAMPP or Laragon.</li>
                 <li>Create the database by importing <strong>database_schema.sql</strong>.</li>
-                <li>If your localhost password or database name is different, copy <strong>config.example.php</strong> to <strong>config.php</strong> and update it.</li>
+                <li>If your localhost password or database name is different, copy <strong>config/config.example.php</strong> to <strong>config/config.php</strong> and update it.</li>
             </ul>
             <pre>mysql -u root -p &lt; database_schema.sql</pre>
             <p>MySQL error: <?= htmlspecialchars(mysqli_connect_error()) ?></p>
@@ -91,6 +91,9 @@ if (!mysqli_query($conn, "SELECT is_verified FROM users LIMIT 1")) {
     mysqli_query($conn, "ALTER TABLE users ADD COLUMN otp_code VARCHAR(6) DEFAULT NULL AFTER password");
     mysqli_query($conn, "ALTER TABLE users ADD COLUMN is_verified TINYINT(1) DEFAULT 0 AFTER otp_code");
     mysqli_query($conn, "UPDATE users SET is_verified = 1"); // Mark existing as verified
+}
+if (!mysqli_query($conn, "SELECT otp_expiry FROM users LIMIT 1")) {
+    mysqli_query($conn, "ALTER TABLE users ADD COLUMN otp_expiry DATETIME DEFAULT NULL AFTER otp_code");
 }
 if (!mysqli_query($conn, "SELECT reset_otp FROM users LIMIT 1")) {
     mysqli_query($conn, "ALTER TABLE users ADD COLUMN reset_otp VARCHAR(6) DEFAULT NULL AFTER is_verified");
