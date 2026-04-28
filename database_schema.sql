@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `email`            VARCHAR(100) NOT NULL,
   `password`         VARCHAR(255) NOT NULL,
   `otp_code`         VARCHAR(6)   DEFAULT NULL,
+  `otp_expiry`       DATETIME     DEFAULT NULL,
   `is_verified`      TINYINT(1)   DEFAULT 0,
   `reset_otp`        VARCHAR(6)   DEFAULT NULL,
   `reset_otp_expiry` DATETIME     DEFAULT NULL,

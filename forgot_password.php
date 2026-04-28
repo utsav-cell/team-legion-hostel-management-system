@@ -4,6 +4,7 @@
 // ─────────────────────────────────────────────────
 
 require_once 'db.php';
+require_once 'mailer.php';
 
 $error = $success = '';
 
@@ -14,19 +15,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!$email) throw new Exception('Email is required.');
 
-        // Find student
-        $stmt = mysqli_prepare($conn, "SELECT id, name FROM users WHERE email = ? AND role = 'student' LIMIT 1");
-        mysqli_stmt_bind_param($stmt, 's', $email);
-        mysqli_stmt_execute($stmt);
-        $u = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
-        mysqli_stmt_close($stmt);
+        $stmt = $pdo->prepare('SELECT id, name FROM users WHERE email = ? LIMIT 1');
+        $stmt->execute([$email]);
+        $u = $stmt->fetch();
 
         if (!$u) {
-            // For security, don't reveal if email exists, but here we'll be helpful
-            throw new Exception('Email not found or not a student account.');
+            throw new Exception('Email not found.');
         }
 
-        $success = "Password reset via OTP is disabled. Please contact your hostel administrator for assistance.";
+        $otp = (string) random_int(100000, 999999);
+        $otp_expiry = date('Y-m-d H:i:s', time() + 600);
+
+        $upd = $pdo->prepare(
+            'UPDATE users SET reset_otp = ?, reset_otp_expiry = ? WHERE id = ?'
+        );
+        $upd->execute([$otp, $otp_expiry, $u['id']]);
+
+        $safe_name = htmlspecialchars($u['name'], ENT_QUOTES, 'UTF-8');
+        $safe_otp = htmlspecialchars($otp, ENT_QUOTES, 'UTF-8');
+        $body = "<p>Hi {$safe_name},</p>"
+            . "<p>Use this OTP to reset your password:</p>"
+            . "<h2 style=\"letter-spacing:2px;\">{$safe_otp}</h2>"
+            . "<p>This code expires in 10 minutes.</p>";
+
+        send_app_mail($email, $u['name'], 'Reset your password - HMS', $body);
+
+        $success = 'Reset code sent. Check your email.';
+        header('Location: reset_password.php?email=' . urlencode($email));
+        exit;
 
     } catch (Exception $e) {
         $error = $e->getMessage();

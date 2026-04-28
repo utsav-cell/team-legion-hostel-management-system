@@ -136,7 +136,8 @@ require_once '../db.php';
                 <button type="submit" class="hero-btn hero-btn-primary enquiry-submit">SUBMIT ENQUIRY</button>
             </form>
             <div id="enquiry-success" class="form-status success" style="display: none;">
-                ✓ Enquiry submitted successfully! Our team will contact you soon.
+                <span class="status-dot" aria-hidden="true"></span>
+                Enquiry sent.
             </div>
             <div id="enquiry-error" class="form-status error" style="display: none;">
                 ❌ Error submitting enquiry. Please try again later.

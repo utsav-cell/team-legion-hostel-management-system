@@ -175,13 +175,35 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--light); c
 
 .form-status {
     margin-top: 1.5rem;
-    font-weight: 700;
+    font-weight: 600;
     text-align: center;
+    font-size: 1rem;
+    letter-spacing: -0.01em;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.85rem 1.2rem;
+    border-radius: 999px;
+    background: #ecfdf3;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    box-shadow: 0 10px 20px -16px rgba(15, 23, 42, 0.35);
 }
 
-.form-status.success { color: #10b981; }
+.form-status.success { color: #0f766e; }
 
-.form-status.error { color: var(--danger); }
+.form-status.error {
+    color: #b91c1c;
+    background: #fef2f2;
+    border-color: rgba(239, 68, 68, 0.25);
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: #10b981;
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15);
+}
 
 /* ANIMATIONS */
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
