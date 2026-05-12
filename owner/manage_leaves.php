@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once '../db.php';
 require_role('owner');
 
@@ -42,14 +42,14 @@ $active = 'manage_leaves.php';
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manage Leaves — Owner Dashboard</title>
-    <link rel="stylesheet" href="../css/style.css?v=2">
+    <link rel="stylesheet" href="../css/style.css?v=18">
 </head>
 <body>
 <?php echo render_sidebar($active); ?>
+<?= render_topbar() ?>
 <div class="container">
     <div class="page-header">
         <h1>Final Leave Approval</h1>
-        <p>Review leave requests that have already been cleared by the Warden</p>
     </div>
 
     <?php if (empty($pending)): ?>
@@ -75,7 +75,7 @@ $active = 'manage_leaves.php';
                         <input type="hidden" name="leave_id" value="<?= (int)$l['id'] ?>">
                         <button type="submit" name="approve" class="btn btn-primary" style="background: var(--brand);">Issue Final Permit</button>
                     </form>
-                    <form method="post" onsubmit="return confirm('Reject final permit?')">
+                    <form method="post" data-confirm="Reject final permit?">
                         <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
                         <input type="hidden" name="leave_id" value="<?= (int)$l['id'] ?>">
                         <button type="submit" name="reject" class="btn" style="color:var(--danger); border:1px solid var(--danger-soft);">Decline</button>

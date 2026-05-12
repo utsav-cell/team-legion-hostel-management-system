@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 // ─────────────────────────────────────────────────
 // warden/room_requests.php — Room Request Management
 // ─────────────────────────────────────────────────
@@ -70,14 +70,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Get pending room requests
+// Get pending room requests - one row per student (no room join to avoid cartesian product)
 $pending = [];
 $stmt = mysqli_prepare($conn,
-    "SELECT u.id, u.name, u.email, u.student_phone, u.room_preference,
-            r.id as room_id, r.room_number, r.room_type, r.floor,
-            u.created_at
+    "SELECT u.id, u.name, u.email, u.student_phone, u.room_preference, u.created_at
      FROM users u
-     LEFT JOIN rooms r ON r.status = 'available'
      WHERE u.role = 'student' AND u.room_status = 'pending'
      ORDER BY u.created_at DESC");
 mysqli_stmt_execute($stmt);
@@ -104,11 +101,11 @@ while ($row = mysqli_fetch_assoc($result)) {
 }
 mysqli_stmt_close($stmt);
 
-// Get available rooms
+// Available rooms for the assign dropdown (separate query, no join to students)
 $available_rooms = [];
 $res = mysqli_query($conn,
-    "SELECT id, room_number, room_type, floor
-     FROM rooms WHERE status = 'available'
+    "SELECT id, room_number, room_type, floor FROM rooms
+     WHERE status = 'available' AND deleted_at IS NULL
      ORDER BY floor ASC, room_number ASC");
 while ($r = mysqli_fetch_assoc($res)) {
     $available_rooms[] = $r;
@@ -198,10 +195,10 @@ while ($r = mysqli_fetch_assoc($res)) {
 </head>
 <body>
 <?php echo render_sidebar('room_requests.php'); ?>
+<?= render_topbar() ?>
 <div class="container">
     <div class="page-header">
         <h1>Room Assignment Requests</h1>
-        <p>Manage student room requests and available rooms</p>
     </div>
 
     <?php if ($error): ?>
@@ -276,8 +273,7 @@ while ($r = mysqli_fetch_assoc($res)) {
                             <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
                             <input type="hidden" name="action" value="reject">
                             <input type="hidden" name="student_id" value="<?= $req['id'] ?>">
-                            <button type="submit" class="btn btn-secondary btn-sm" 
-                                    onclick="return confirm('Reject this request?')">
+                            <button type="submit" class="btn btn-secondary btn-sm" data-confirm="Reject this request?">
                                 Reject
                             </button>
                         </form>

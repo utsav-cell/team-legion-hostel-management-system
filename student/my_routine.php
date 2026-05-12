@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once '../db.php';
 require_role('student');
 
@@ -12,7 +12,7 @@ $active = 'my_routine.php';
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Daily Routine — Student Dashboard</title>
-    <link rel="stylesheet" href="../css/style.css?v=2">
+    <link rel="stylesheet" href="../css/style.css?v=18">
     <style>
         .routine-item { display: flex; align-items: center; padding: 1.25rem; border-bottom: 
         1px solid var(--border); transition: 0.3s; gap: 1.5rem; }
@@ -25,10 +25,10 @@ $active = 'my_routine.php';
 </head>
 <body>
 <?php echo render_sidebar($active); ?>
+<?= render_topbar() ?>
 <div class="container">
     <div class="page-header">
         <h1>Official Daily Schedule</h1>
-        <p>Your guide to hostel life and academic balance</p>
     </div>
 
     <div class="card" style="padding: 0;">

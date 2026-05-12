@@ -1,9 +1,10 @@
-<?php
+﻿<?php
 // ─────────────────────────────────────────────────
 // login.php — Login, Registration and 2FA Verification
 // ─────────────────────────────────────────────────
 
 require_once 'db.php';
+require_once 'mailer.php';
 
 // Redirect already logged in users
 $auth = get_auth();
@@ -44,6 +45,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$u || !password_verify($pass, $u['password'])) {
                 throw new Exception('Invalid email or password.');
             }
+            if (!(int)$u['is_verified']) {
+                throw new Exception('Please verify your email using the OTP sent to you.');
+            }
 
             set_auth($u);
             $res['success']  = true;
@@ -78,27 +82,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception('This email is already registered.');
             }
 
-            $photo_name = 'default.png';
-            if (!empty($_FILES['photo']['name'])) {
-                $ext = strtolower(pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION));
-                if (!in_array($ext, ['jpg', 'jpeg', 'png'])) throw new Exception('Only JPG/PNG allowed.');
-                $photo_name = 'user_' . time() . '.' . $ext;
-                if (!move_uploaded_file($_FILES['photo']['tmp_name'], 'uploads/students/' . $photo_name)) {
-                    throw new Exception('Failed to upload photo.');
-                }
-            }
-
             $hash = password_hash($pass, PASSWORD_DEFAULT);
 
+            $otp = (string) random_int(100000, 999999);
+            $otp_expiry = date('Y-m-d H:i:s', time() + 600);
+
             $ins = $pdo->prepare(
-                'INSERT INTO users (name, email, student_phone, password, role, room_preference, photo, is_verified)
-                 VALUES (?, ?, ?, ?, \'student\', ?, ?, 1)'
+                'INSERT INTO users (name, email, student_phone, password, role, room_preference, is_verified, otp_code, otp_expiry)
+                 VALUES (?, ?, ?, ?, \'student\', ?, 0, ?, ?)'
             );
 
-            if ($ins->execute([$name, $email, $phone, $hash, $pref, $photo_name])) {
+            if ($ins->execute([$name, $email, $phone, $hash, $pref, $otp, $otp_expiry])) {
+                $safe_name = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
+                $email_sent = false;
+                try {
+                    $safe_otp = htmlspecialchars($otp, ENT_QUOTES, 'UTF-8');
+                    $body = "<p>Hi {$safe_name},</p>"
+                        . "<p>Use this OTP to verify your email address:</p>"
+                        . "<h2 style=\"letter-spacing:2px;\">{$safe_otp}</h2>"
+                        . "<p>This code expires in 10 minutes.</p>";
+                    send_app_mail($email, $name, 'Verify your email - HMS', $body);
+                    $email_sent = true;
+                } catch (Exception $mail_ex) {
+                    $email_sent = false;
+                }
+
                 $res['success'] = true;
-                $res['message'] = "Account created successfully! You can now log in.";
-                $res['redirect'] = "?mode=login";
+                $res['message'] = $email_sent
+                    ? "Account created! Check your email for the OTP to verify your account."
+                    : "Account created! OTP email could not be sent. Please contact admin.";
+                $res['redirect'] = "verify.php?email=" . urlencode($email);
             } else {
                 throw new Exception('Registration failed.');
             }
@@ -129,7 +142,7 @@ $verify_email = $_GET['email'] ?? '';
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HMS — <?= ucfirst($mode) ?></title>
-    <link rel="stylesheet" href="css/style.css?v=4">
+    <link rel="stylesheet" href="css/style.css?v=18">
     <style>
         body {
             background: #f8fafc;
@@ -160,7 +173,7 @@ $verify_email = $_GET['email'] ?? '';
         <?php if ($error): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
         <?php if ($success): ?><div class="alert alert-success"><?= e($success) ?></div><?php endif; ?>
 
-        <form method="post" enctype="multipart/form-data">
+        <form method="post">
                 <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
                 <input type="hidden" id="action" name="action" value="<?= $mode === 'login' ? 'login' : 'register' ?>">
 
@@ -179,11 +192,6 @@ $verify_email = $_GET['email'] ?? '';
                                 <option value="Double">Double</option>
                             </select>
                         </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Profile Photo</label>
-                        <input name="photo" type="file" required accept="image/*">
-                        <small style="color:var(--text-muted);">Please upload a clear face photo</small>
                     </div>
                 <?php else: ?>
                     <div class="form-group"><label>Email Address</label><input name="email" type="email" required></div>

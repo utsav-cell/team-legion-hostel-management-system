@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 
 require_once '../db.php';
@@ -21,14 +21,14 @@ $role = 'student'; $active = 'food_routine.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Food Routine — HMS</title>
-    <link rel="stylesheet" href="../css/style.css?v=2">
+    <link rel="stylesheet" href="../css/style.css?v=18">
 </head>
 <body>
 <?php echo render_sidebar('food_routine.php'); ?>
+<?= render_topbar() ?>
 <div class="container">
     <div class="page-header">
         <h1>Food Routine</h1>
-        <p>Menu and meal schedule for today</p>
     </div>
 
     <div class="card">

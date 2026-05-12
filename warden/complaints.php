@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 // ─────────────────────────────────────────────────
 // warden/complaints.php — View and Update Complaints
 // ─────────────────────────────────────────────────
@@ -57,14 +57,14 @@ $resolved = $total - $open;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Complaints — HMS</title>
-    <link rel="stylesheet" href="../css/style.css?v=2">
+    <link rel="stylesheet" href="../css/style.css?v=18">
 </head>
 <body>
 <?php echo render_sidebar('complaints.php'); ?>
+<?= render_topbar() ?>
 <div class="container">
     <div class="page-header">
         <h1>Student Complaints</h1>
-        <p>Review and respond to issues raised by students</p>
     </div>
 
     <?php if ($success): ?>

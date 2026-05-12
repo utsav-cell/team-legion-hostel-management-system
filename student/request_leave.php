@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once '../db.php';
 require_role('student');
 
@@ -36,14 +36,14 @@ $active = 'request_leave.php';
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Request Leave — Student Dashboard</title>
-    <link rel="stylesheet" href="../css/style.css?v=2">
+    <link rel="stylesheet" href="../css/style.css?v=18">
 </head>
 <body>
 <?php echo render_sidebar($active); ?>
+<?= render_topbar() ?>
 <div class="container">
     <div class="page-header">
         <h1>Leave Request</h1>
-        <p>Submit your reason and dates for leaving the hostel</p>
     </div>
 
     <?php if (!empty($error)): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>

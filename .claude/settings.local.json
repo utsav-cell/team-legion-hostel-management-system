@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Select-String -Path \"C:\\\\xampp\\\\htdocs\\\\team-legion-hostel-management-system\\\\warden\\\\student_attendance.php\" -Pattern \"render_topbar\")",
+      "Bash(Select-Object -First 3)",
+      "PowerShell(Get-Item *)"
+    ]
+  }
+}
