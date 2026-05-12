@@ -180,6 +180,21 @@ document.addEventListener('DOMContentLoaded', () => {
         toggle.addEventListener('click', () => sidebar.classList.toggle('open'));
     }
 
+    // Theme toggle (dark/light) — inline script in head already restored saved state
+    const themeBtn = document.getElementById('theme-toggle-btn');
+    if (themeBtn) {
+        themeBtn.addEventListener('click', () => {
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            if (isDark) {
+                document.documentElement.removeAttribute('data-theme');
+                try { localStorage.setItem('hms-theme', 'light'); } catch(e){}
+            } else {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                try { localStorage.setItem('hms-theme', 'dark'); } catch(e){}
+            }
+        });
+    }
+
     // Convert .alert elements to floating toasts
     (function initToasts() {
         const alerts = document.querySelectorAll('.alert');
@@ -232,10 +247,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const decimals = (el.dataset.decimals || '').length;
         const prefix   = el.dataset.prefix || '';
         const suffix   = el.dataset.suffix || '';
+        // Auto thousand-grouping for integer values (skip when target < 1000 or has decimals)
+        const useCommas = decimals === 0 && Math.abs(target) >= 1000 && el.dataset.commas !== 'false';
         const step = (now) => {
             const progress  = Math.min((now - start) / duration, 1);
             const value     = target * (1 - Math.pow(1 - progress, 3));
-            const formatted = Number(value).toFixed(decimals).replace(/\.0+$/, '');
+            let formatted;
+            if (useCommas) {
+                formatted = Math.round(value).toLocaleString('en-US');
+            } else {
+                formatted = Number(value).toFixed(decimals).replace(/\.0+$/, '');
+            }
             el.textContent  = `${prefix}${formatted}${suffix}`;
             if (progress < 1) requestAnimationFrame(step);
         };
@@ -272,6 +294,98 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.style.opacity   = '0.8';
             btn.innerHTML       = 'Processing...';
         });
+    });
+
+    // Client-side paginator — opt-in by adding data-paginate="15" to a <table>
+    document.querySelectorAll('table[data-paginate]').forEach((table) => {
+        const perPage = Math.max(1, parseInt(table.dataset.paginate, 10) || 15);
+        const tbody   = table.querySelector('tbody');
+        if (!tbody) return;
+        const rows    = Array.from(tbody.querySelectorAll('tr'));
+        // Skip if there's an empty-state colspan row
+        if (rows.length <= perPage) return;
+
+        const totalPages = Math.ceil(rows.length / perPage);
+        let currentPage  = 1;
+
+        // Build pagination container
+        const pag = document.createElement('div');
+        pag.className = 'hms-pagination';
+        const info  = document.createElement('span');
+        info.className = 'hms-pag-info';
+        const pages = document.createElement('div');
+        pages.className = 'hms-pag-pages';
+        pag.appendChild(info);
+        pag.appendChild(pages);
+
+        // Insert after the table-wrap (or table itself)
+        const insertAfter = table.closest('.table-wrap') || table;
+        insertAfter.parentNode.insertBefore(pag, insertAfter.nextSibling);
+
+        function render() {
+            const startIdx = (currentPage - 1) * perPage;
+            const endIdx   = startIdx + perPage;
+            rows.forEach((tr, i) => {
+                tr.style.display = (i >= startIdx && i < endIdx) ? '' : 'none';
+            });
+            const shownStart = startIdx + 1;
+            const shownEnd   = Math.min(endIdx, rows.length);
+            info.innerHTML = `Showing <strong>${shownStart}–${shownEnd}</strong> of <strong>${rows.length}</strong>`;
+
+            pages.innerHTML = '';
+            // Prev
+            const prev = document.createElement(currentPage === 1 ? 'span' : 'a');
+            prev.textContent = '‹';
+            if (currentPage === 1) prev.className = 'hms-pag-disabled';
+            else { prev.href = '#'; prev.addEventListener('click', (e) => { e.preventDefault(); currentPage--; render(); scrollTop(); }); }
+            pages.appendChild(prev);
+
+            // Numbered (with ellipsis logic for many pages)
+            const addPage = (p) => {
+                if (p === currentPage) {
+                    const span = document.createElement('span');
+                    span.className = 'hms-pag-current';
+                    span.textContent = p;
+                    pages.appendChild(span);
+                } else {
+                    const a = document.createElement('a');
+                    a.href = '#';
+                    a.textContent = p;
+                    a.addEventListener('click', (e) => { e.preventDefault(); currentPage = p; render(); scrollTop(); });
+                    pages.appendChild(a);
+                }
+            };
+            const addDots = () => {
+                const span = document.createElement('span');
+                span.className = 'hms-pag-disabled';
+                span.style.border = 'none';
+                span.style.background = 'transparent';
+                span.textContent = '…';
+                pages.appendChild(span);
+            };
+            if (totalPages <= 7) {
+                for (let p = 1; p <= totalPages; p++) addPage(p);
+            } else {
+                addPage(1);
+                if (currentPage > 3) addDots();
+                const startP = Math.max(2, currentPage - 1);
+                const endP   = Math.min(totalPages - 1, currentPage + 1);
+                for (let p = startP; p <= endP; p++) addPage(p);
+                if (currentPage < totalPages - 2) addDots();
+                addPage(totalPages);
+            }
+
+            // Next
+            const next = document.createElement(currentPage === totalPages ? 'span' : 'a');
+            next.textContent = '›';
+            if (currentPage === totalPages) next.className = 'hms-pag-disabled';
+            else { next.href = '#'; next.addEventListener('click', (e) => { e.preventDefault(); currentPage++; render(); scrollTop(); }); }
+            pages.appendChild(next);
+        }
+        function scrollTop() {
+            insertAfter.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        render();
     });
 
     // Table search

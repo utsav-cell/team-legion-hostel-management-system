@@ -394,7 +394,7 @@ function ls_avatar_color($name) {
 
         <?php if ($paged_students): ?>
         <div class="ls-table-wrap">
-            <table class="ls-table">
+            <table class="ls-table" data-paginate="15">
                 <thead>
                     <tr>
                         <th>Student</th>

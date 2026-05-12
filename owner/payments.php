@@ -234,7 +234,7 @@ $fees_generated_count = (int)$fees_generated_stmt->fetchColumn();
 // Students yet to pay this month
 $yet_to_pay = $pdo->prepare(
     "SELECT mf.id AS fee_id, mf.amount, mf.status, mf.due_date, mf.billing_month,
-            u.id AS student_id, u.name, u.email, r.room_number
+            u.id AS student_id, u.name, u.email, u.photo, r.room_number
      FROM monthly_fees mf
      JOIN users u ON u.id = mf.student_id
      LEFT JOIN rooms r ON r.id = mf.room_id
@@ -260,7 +260,7 @@ $total_pages = max(1, (int)ceil($pay_count / $per_page));
 $recent_payments = $pdo->query(
     "SELECT p.id, p.amount, p.billing_month, p.status, p.gateway, p.receipt_code,
             p.paid_at, p.initiated_at, p.transaction_uuid,
-            u.name AS student_name, u.email AS student_email, r.room_number
+            u.name AS student_name, u.email AS student_email, u.photo AS student_photo, r.room_number
      FROM payments p
      JOIN users u ON u.id = p.student_id
      LEFT JOIN rooms r ON r.id = p.room_id
@@ -275,8 +275,68 @@ $recent_payments = $pdo->query(
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HMS — Payments</title>
-    <link rel="stylesheet" href="../css/style.css?v=18">
+    <link rel="stylesheet" href="../css/style.css?v=19">
     <style>
+        /* Student cell with avatar */
+        .pay-stu { display:flex; align-items:center; gap:0.65rem; min-width:0; }
+        .pay-avatar {
+            width: 34px; height: 34px;
+            border-radius: 999px;
+            background: var(--primary-soft);
+            color: var(--primary);
+            font-weight: 700; font-size: 0.72rem;
+            display: inline-flex; align-items: center; justify-content: center;
+            flex-shrink: 0; overflow: hidden; letter-spacing: 0.02em;
+        }
+        .pay-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 999px; }
+        .pay-stu .pay-name { font-weight: 700; font-size: 0.875rem; color: var(--text); line-height: 1.2; }
+        .pay-stu .pay-mail { font-size: 0.76rem; color: var(--muted); margin-top: 2px; }
+        .pay-amt { font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.005em; }
+
+        /* Empty illustration */
+        .pay-empty { text-align:center; padding: 2.5rem 1rem; }
+        .pay-empty svg { width: 42px; height: 42px; stroke: #94a3b8; fill: none; stroke-width: 1.75; opacity: 0.7; }
+        .pay-empty h3 { font-size: 0.95rem; font-weight: 700; color: var(--text); margin: 0.65rem 0 0.2rem; }
+        .pay-empty p { font-size: 0.82rem; color: var(--muted); margin: 0; }
+
+        /* Monthly fees status — text-led, no big card chrome */
+        .fees-status {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            padding: 0.25rem 0.25rem 1.5rem;
+            margin-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .fees-status-text h3 { font-size: 1rem; font-weight: 800; color: var(--text); margin: 0 0 0.3rem; letter-spacing: -0.01em; }
+        .fees-status-text p {
+            font-size: 0.9rem; color: var(--muted); line-height: 1.55; margin: 0;
+            max-width: 58ch;
+        }
+        .fees-status-text p strong { color: var(--text); font-weight: 700; }
+        .fees-status-actions { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+        .fees-link-btn {
+            background: none; border: none;
+            color: var(--muted); font-weight: 600; font-size: 0.875rem;
+            cursor: pointer; padding: 0.25rem 0; font-family: inherit;
+            border-bottom: 1.5px solid transparent;
+            transition: color 0.15s ease, border-color 0.15s ease;
+        }
+        .fees-link-btn:hover { color: var(--text); border-bottom-color: var(--muted); }
+        .fees-link-btn.primary { color: var(--primary); }
+        .fees-link-btn.primary:hover { color: var(--primary-strong); border-bottom-color: var(--primary); }
+
+        /* Month progress card */
+        .month-progress-card { padding: 1rem 1.3rem 1.1rem; margin-bottom: 1.25rem; }
+        .month-progress-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.7rem; }
+        .month-progress-head .mp-title { font-weight: 700; color: var(--text); font-size: 0.92rem; }
+        .month-progress-head .mp-sub { font-size: 0.78rem; color: var(--muted); }
+        .month-progress-head .mp-pct { font-size: 1rem; font-weight: 800; color: var(--primary); letter-spacing: -0.01em; }
+        .month-progress-card .progress-track { height: 9px; }
+        .month-progress-card .progress-bar { background: linear-gradient(90deg, #6366f1, #818cf8); }
+
         .filter-tabs { display:flex; gap:0.5rem; flex-wrap:wrap; }
         .filter-tab {
             padding:0.4rem 1rem; border-radius:999px; font-size:0.82rem; font-weight:600;
@@ -338,7 +398,7 @@ $recent_payments = $pdo->query(
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M9 11h6"/></svg>
             </div>
             <div class="stat-label">Today's Earnings</div>
-            <div class="stat-value">NPR <?= number_format($today_earn, 0) ?></div>
+            <div class="stat-value" data-count="<?= (int)$today_earn ?>" data-prefix="NPR ">NPR <?= number_format($today_earn, 0) ?></div>
             <div class="stat-meta"><?= date('d M Y') ?></div>
         </div>
         <div class="stat-box stat-indigo">
@@ -346,7 +406,7 @@ $recent_payments = $pdo->query(
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             </div>
             <div class="stat-label">This Month</div>
-            <div class="stat-value">NPR <?= number_format($month_earn, 0) ?></div>
+            <div class="stat-value" data-count="<?= (int)$month_earn ?>" data-prefix="NPR ">NPR <?= number_format($month_earn, 0) ?></div>
             <div class="stat-meta"><?= $billing_label ?></div>
         </div>
         <div class="stat-box stat-green">
@@ -354,7 +414,7 @@ $recent_payments = $pdo->query(
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
             </div>
             <div class="stat-label">Total Collected</div>
-            <div class="stat-value">NPR <?= number_format($total_earn, 0) ?></div>
+            <div class="stat-value" data-count="<?= (int)$total_earn ?>" data-prefix="NPR ">NPR <?= number_format($total_earn, 0) ?></div>
             <div class="stat-meta">All time</div>
         </div>
         <div class="stat-box stat-amber">
@@ -362,40 +422,70 @@ $recent_payments = $pdo->query(
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 20h20L12 2z"/><path d="M12 9v4M12 17h.01"/></svg>
             </div>
             <div class="stat-label">Pending Dues</div>
-            <div class="stat-value">NPR <?= number_format($pending_dues, 0) ?></div>
+            <div class="stat-value" data-count="<?= (int)$pending_dues ?>" data-prefix="NPR ">NPR <?= number_format($pending_dues, 0) ?></div>
             <div class="stat-meta"><?= count($yet_to_pay) ?> student(s) this month</div>
         </div>
     </div>
 
-    <!-- Fees generated widget -->
-    <div class="card" style="margin-bottom:1.5rem;">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
-            <div class="card-title">Monthly Fees — <?= $billing_label ?></div>
-            <!-- Always show generate button; confirmation popup if already generated -->
-            <form method="post" <?= $fees_generated_count > 0
+    <!-- Monthly fees status -->
+    <div class="fees-status">
+        <div class="fees-status-text">
+            <h3>Monthly fees for <?= $billing_label ?></h3>
+            <p>
+                <?php if ($fees_generated_count === 0): ?>
+                    No fees have been generated for this month yet. Generate them once to bill every active student.
+                <?php else: ?>
+                    Fees generated for <strong><?= $fees_generated_count ?></strong> student<?= $fees_generated_count !== 1 ? 's' : '' ?>.
+                    <?php if (count($yet_to_pay) > 0): ?>
+                        <strong><?= count($yet_to_pay) ?></strong> still haven't paid.
+                    <?php else: ?>
+                        Everyone has paid &mdash; nicely done.
+                    <?php endif; ?>
+                <?php endif; ?>
+            </p>
+        </div>
+        <div class="fees-status-actions">
+            <form method="post" style="display:inline;" <?= $fees_generated_count > 0
                 ? 'data-confirm="Fees for '.$billing_label.' have already been generated for '.$fees_generated_count.' student(s). Running again only adds rows for new students without one. Continue?"'
                 : '' ?>>
                 <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
                 <input type="hidden" name="action" value="generate_fees">
                 <input type="hidden" name="billing_month" value="<?= e($billing_month) ?>">
-                <button type="submit" class="btn btn-primary">
-                    <?= get_svg_icon('money') ?> Generate Fees for <?= $billing_label ?>
+                <button type="submit" class="fees-link-btn primary">
+                    <?= $fees_generated_count === 0 ? 'Generate fees' : 'Re-run for new students' ?>
                 </button>
             </form>
-            <?php if ($fees_generated_count > 0): ?>
-            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
-                <form method="post" style="display:inline;"
-                      data-confirm="Send fee reminders to all students who have not paid for <?= htmlspecialchars($billing_label, ENT_QUOTES) ?>?">
-                    <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
-                    <input type="hidden" name="action" value="send_all_reminders">
-                    <button type="submit" class="btn btn-secondary">
-                        Send All Reminders (<?= count($yet_to_pay) ?>)
-                    </button>
-                </form>
-            </div>
+            <?php if ($fees_generated_count > 0 && count($yet_to_pay) > 0): ?>
+            <form method="post" style="display:inline;"
+                  data-confirm="Send fee reminders to all students who have not paid for <?= htmlspecialchars($billing_label, ENT_QUOTES) ?>?">
+                <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
+                <input type="hidden" name="action" value="send_all_reminders">
+                <button type="submit" class="fees-link-btn">Send <?= count($yet_to_pay) ?> reminders</button>
+            </form>
             <?php endif; ?>
         </div>
     </div>
+
+    <!-- Month-progress card -->
+    <?php
+    $month_expected  = (float)$month_earn + (float)$pending_dues;
+    $month_collected = (float)$month_earn;
+    $month_pct       = $month_expected > 0 ? round($month_collected / $month_expected * 100) : 0;
+    ?>
+    <?php if ($month_expected > 0): ?>
+    <div class="card month-progress-card">
+        <div class="month-progress-head">
+            <div>
+                <div class="mp-title">Collected this month</div>
+                <div class="mp-sub">NPR <?= number_format($month_collected, 0) ?> of NPR <?= number_format($month_expected, 0) ?> &mdash; <?= $billing_label ?></div>
+            </div>
+            <div class="mp-pct"><?= $month_pct ?>%</div>
+        </div>
+        <div class="progress-track">
+            <div class="progress-bar" style="width:<?= $month_pct ?>%;"></div>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <!-- Students yet to pay -->
     <?php if (!empty($yet_to_pay)): ?>
@@ -419,16 +509,29 @@ $recent_payments = $pdo->query(
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($yet_to_pay as $fp): ?>
+                    <?php foreach ($yet_to_pay as $fp):
+                        $fpphoto = $fp['photo'] ?? 'default.png';
+                        $fpparts = array_values(array_filter(explode(' ', trim($fp['name']))));
+                        $fpinit  = strtoupper(substr($fpparts[0] ?? 'S', 0, 1)) . strtoupper(substr($fpparts[1] ?? '', 0, 1));
+                    ?>
                     <tr>
                         <td>
-                            <div style="font-weight:600;"><?= e($fp['name']) ?></div>
-                            <div style="font-size:0.78rem;color:var(--muted);"><?= e($fp['email']) ?></div>
+                            <div class="pay-stu">
+                                <div class="pay-avatar">
+                                    <?php if ($fpphoto !== 'default.png'): ?>
+                                        <img src="../uploads/students/<?= rawurlencode($fpphoto) ?>" alt="<?= e($fp['name']) ?>" onerror="this.parentNode.textContent='<?= e($fpinit) ?>'">
+                                    <?php else: ?><?= e($fpinit) ?><?php endif; ?>
+                                </div>
+                                <div style="min-width:0;">
+                                    <div class="pay-name"><?= e($fp['name']) ?></div>
+                                    <div class="pay-mail"><?= e($fp['email']) ?></div>
+                                </div>
+                            </div>
                         </td>
                         <td style="color:var(--muted);">
                             <?= $fp['room_number'] ? 'Room ' . e($fp['room_number']) : '—' ?>
                         </td>
-                        <td style="font-weight:700;">NPR <?= number_format($fp['amount'], 0) ?></td>
+                        <td class="pay-amt">NPR <?= number_format($fp['amount'], 0) ?></td>
                         <td style="font-size:0.82rem;color:var(--muted);">
                             <?= date('d M Y', strtotime($fp['due_date'])) ?>
                         </td>
@@ -487,7 +590,11 @@ $recent_payments = $pdo->query(
         </div>
 
         <?php if (empty($recent_payments)): ?>
-            <p style="color:var(--muted);font-size:0.875rem;">No payment records found.</p>
+            <div class="pay-empty">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+                <h3>No payments yet</h3>
+                <p><?= $pay_filter === 'all' ? 'Payments will appear here once students start paying.' : 'No payments match the current filter.' ?></p>
+            </div>
         <?php else: ?>
         <div class="table-wrap">
             <table>
@@ -504,17 +611,30 @@ $recent_payments = $pdo->query(
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($recent_payments as $p): ?>
+                    <?php foreach ($recent_payments as $p):
+                        $pphoto = $p['student_photo'] ?? 'default.png';
+                        $pparts = array_values(array_filter(explode(' ', trim($p['student_name']))));
+                        $pinit  = strtoupper(substr($pparts[0] ?? 'S', 0, 1)) . strtoupper(substr($pparts[1] ?? '', 0, 1));
+                    ?>
                     <tr>
                         <td>
-                            <div style="font-weight:600;font-size:0.875rem;"><?= e($p['student_name']) ?></div>
-                            <div style="font-size:0.77rem;color:var(--muted);"><?= e($p['student_email']) ?></div>
+                            <div class="pay-stu">
+                                <div class="pay-avatar">
+                                    <?php if ($pphoto !== 'default.png'): ?>
+                                        <img src="../uploads/students/<?= rawurlencode($pphoto) ?>" alt="<?= e($p['student_name']) ?>" onerror="this.parentNode.textContent='<?= e($pinit) ?>'">
+                                    <?php else: ?><?= e($pinit) ?><?php endif; ?>
+                                </div>
+                                <div style="min-width:0;">
+                                    <div class="pay-name"><?= e($p['student_name']) ?></div>
+                                    <div class="pay-mail"><?= e($p['student_email']) ?></div>
+                                </div>
+                            </div>
                         </td>
                         <td style="color:var(--muted);">
                             <?= $p['room_number'] ? 'Room ' . e($p['room_number']) : '—' ?>
                         </td>
                         <td style="font-size:0.85rem;"><?= date('M Y', strtotime($p['billing_month'])) ?></td>
-                        <td style="font-weight:700;">NPR <?= number_format($p['amount'], 0) ?></td>
+                        <td class="pay-amt">NPR <?= number_format($p['amount'], 0) ?></td>
                         <td>
                             <?php if ($p['gateway'] === 'esewa'): ?>
                                 <span class="badge badge-esewa">eSewa</span>

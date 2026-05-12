@@ -30,6 +30,87 @@
     --danger-soft:    #fee2e2;
 }
 
+/* ─── Dark theme (toggled via [data-theme="dark"] on <html>) ─────── */
+html[data-theme="dark"] {
+    --panel:          #1e293b;
+    --panel-alt:      #0f172a;
+    --text:           #f1f5f9;
+    --muted:          #94a3b8;
+    --text-muted:     #94a3b8;
+    --border:         rgba(148, 163, 184, 0.2);
+    --primary-soft:   rgba(99, 102, 241, 0.18);
+    --brand-bg:       rgba(99, 102, 241, 0.18);
+    --shadow:         0 1px 3px rgba(0, 0, 0, 0.4), 0 6px 16px rgba(0, 0, 0, 0.35);
+    --shadow-soft:    0 1px 3px rgba(0, 0, 0, 0.35), 0 4px 12px rgba(0, 0, 0, 0.25);
+    --shadow-sm:      0 1px 2px rgba(0, 0, 0, 0.4);
+
+    /* Chrome */
+    --sidebar-bg:     #14182a;
+    --sidebar-border: rgba(99, 102, 241, 0.22);
+    --topbar-bg:      #1a2036;
+    --topbar-border:  rgba(99, 102, 241, 0.22);
+
+    /* Tables */
+    --table-outline:     rgba(148, 163, 184, 0.32);
+    --table-row-border:  rgba(148, 163, 184, 0.18);
+    --table-col-border:  rgba(148, 163, 184, 0.14);
+    --table-head-bg:     #232a42;
+    --table-head-text:   #cbd5e1;
+    --table-head-border: rgba(148, 163, 184, 0.4);
+    --table-zebra:       rgba(255, 255, 255, 0.025);
+    --table-hover:       rgba(99, 102, 241, 0.18);
+}
+
+/* Smooth theme transition */
+html, body, .sidebar, .topbar, .card, table, th, td, .stat-box, .rp-card, .badge {
+    transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+}
+
+/* Dark-mode card/panel overrides — most use var(--panel) already, but a few hardcode #fff */
+html[data-theme="dark"] .card,
+html[data-theme="dark"] .stat-box,
+html[data-theme="dark"] .rp-card {
+    background: var(--panel);
+    border-color: var(--border);
+}
+html[data-theme="dark"] .sidebar-menu a:hover,
+html[data-theme="dark"] .sidebar-menu a.active,
+html[data-theme="dark"] .sidebar-user {
+    background: rgba(99, 102, 241, 0.18);
+}
+html[data-theme="dark"] .sidebar-menu a {
+    color: #cbd5e1;
+}
+html[data-theme="dark"] .sidebar-menu a:hover,
+html[data-theme="dark"] .sidebar-menu a.active {
+    color: #c7d2fe;
+}
+html[data-theme="dark"] .sidebar-kicker { color: #94a3b8; }
+html[data-theme="dark"] .sidebar-role,
+html[data-theme="dark"] .sidebar-user { color: #f1f5f9; }
+html[data-theme="dark"] input[type="text"],
+html[data-theme="dark"] input[type="email"],
+html[data-theme="dark"] input[type="number"],
+html[data-theme="dark"] input[type="password"],
+html[data-theme="dark"] input[type="search"],
+html[data-theme="dark"] input[type="tel"],
+html[data-theme="dark"] input[type="date"],
+html[data-theme="dark"] input[type="file"],
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea {
+    background: #232a42;
+    color: #f1f5f9;
+    border-color: rgba(148, 163, 184, 0.25);
+}
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder { color: #64748b; }
+
+/* Theme toggle button */
+.topbar-icon-btn.theme-toggle .icon-sun { display: none; }
+.topbar-icon-btn.theme-toggle .icon-moon { display: inline-flex; }
+html[data-theme="dark"] .topbar-icon-btn.theme-toggle .icon-sun { display: inline-flex; }
+html[data-theme="dark"] .topbar-icon-btn.theme-toggle .icon-moon { display: none; }
+
 /* ─── Reset ─────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
@@ -54,8 +135,8 @@ img { max-width: 100%; }
     flex-direction: column;
     width: 250px;
     padding: 1.25rem 0.875rem;
-    background: #f5f3ff;
-    border-right: 1px solid rgba(99, 102, 241, 0.16);
+    background: var(--sidebar-bg, #f5f3ff);
+    border-right: 1px solid var(--sidebar-border, rgba(99, 102, 241, 0.16));
     overflow-y: auto;
 }
 
@@ -203,8 +284,8 @@ img { max-width: 100%; }
     left: 250px;
     right: 0;
     height: 60px;
-    background: #ffffff;
-    border-bottom: 1px solid rgba(99, 102, 241, 0.16);
+    background: var(--topbar-bg, #ffffff);
+    border-bottom: 1px solid var(--topbar-border, rgba(99, 102, 241, 0.16));
     box-shadow: 0 2px 8px rgba(99, 102, 241, 0.06);
     display: flex;
     align-items: center;
@@ -751,28 +832,68 @@ select { cursor: pointer; }
 .badge-esewa    { background: rgba(99,102,241,0.08); color: #3730a3;  border-color: rgba(99,102,241,0.15); }
 .badge-manual   { background: rgba(15,23,42,0.05);   color: #475569;  border-color: rgba(15,23,42,0.12); }
 
-/* ─── Tables ──────────────────────────────────────────────────────── */
-.table-wrap { overflow-x: auto; }
+/* ─── Tables (soft, beautiful, modern) ─── */
+.table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--table-outline, #e5e7eb);
+    border-radius: 14px;
+    background: var(--panel);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03), 0 6px 18px rgba(15, 23, 42, 0.04);
+}
 table, .table { width: 100%; border-collapse: collapse; }
 th, td {
-    padding: 0.9rem 1rem;
-    border-bottom: 1px solid var(--border);
+    padding: 1rem 1.25rem;
     text-align: left;
     font-size: 0.9rem;
+    color: var(--text);
     vertical-align: middle;
+    line-height: 1.45;
 }
-th {
-    color: var(--muted);
+td { font-weight: 500; border-bottom: 1px solid var(--table-row-border, #eef2f7); }
+
+thead th {
+    background: var(--table-head-bg, #fafbfc);
+    color: var(--table-head-text, #64748b);
     font-size: 0.7rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    background: transparent;
-    padding-block: 0.7rem;
+    letter-spacing: 0.09em;
+    padding: 0.85rem 1.25rem;
+    border-bottom: 1px solid var(--table-head-border, #e5e7eb);
+    white-space: nowrap;
 }
-thead th { border-bottom: 1px solid var(--border); }
-tbody tr:hover { background: var(--panel-alt); }
+
+/* Very subtle zebra — mostly invisible, just enough texture */
+tbody tr:nth-child(even) { background: var(--table-zebra, rgba(15, 23, 42, 0.015)); }
+tbody tr { transition: background 0.12s ease; }
+tbody tr:hover { background: var(--table-hover, rgba(99, 102, 241, 0.05)); }
+tbody tr:nth-child(even):hover { background: var(--table-hover, rgba(99, 102, 241, 0.05)); }
 tbody tr:last-child td { border-bottom: 0; }
+
+/* ─── Universal pagination component ─── */
+.hms-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    padding: 0 0.15rem;
+}
+.hms-pagination .hms-pag-info { color: var(--muted); font-size: 0.82rem; font-weight: 600; }
+.hms-pagination .hms-pag-info strong { color: var(--text); font-weight: 800; }
+.hms-pagination .hms-pag-pages { display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap; }
+.hms-pagination a, .hms-pagination .hms-pag-current, .hms-pagination .hms-pag-disabled {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 34px; height: 34px; padding: 0 0.7rem;
+    border-radius: 8px; font-size: 0.83rem; font-weight: 700;
+    border: 1.5px solid var(--border);
+    background: var(--panel); color: var(--text);
+    text-decoration: none; transition: all 0.12s ease;
+}
+.hms-pagination a:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
+.hms-pagination .hms-pag-current { background: var(--primary); color: #fff; border-color: var(--primary); }
+.hms-pagination .hms-pag-disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* ─── Scroll reveal ───────────────────────────────────────────────── */
 [data-reveal] {

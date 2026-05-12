@@ -68,7 +68,7 @@ try {
 $recent_students = [];
 try {
     $rstmt = $pdo->query(
-        "SELECT u.name, u.email, r.room_number, u.room_status
+        "SELECT u.name, u.email, u.photo, r.room_number, u.room_status
          FROM users u LEFT JOIN rooms r ON r.id = u.room_id
          WHERE u.role = 'student'
          ORDER BY u.created_at DESC LIMIT 10"
@@ -79,9 +79,34 @@ try {
 // Wardens
 $wardens = [];
 try {
-    $ws = $pdo->query("SELECT name, email FROM users WHERE role = 'warden' ORDER BY name ASC");
+    $ws = $pdo->query("SELECT name, email, photo FROM users WHERE role = 'warden' ORDER BY name ASC");
     $wardens = $ws->fetchAll();
 } catch (Exception $e) {}
+
+// Daily registrations (last 14 days, for chart)
+$daily_regs = [];
+try {
+    $dr = $pdo->query(
+        "SELECT DATE(created_at) AS d, COUNT(*) AS c
+         FROM users
+         WHERE role = 'student' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
+         GROUP BY DATE(created_at)"
+    );
+    foreach ($dr->fetchAll() as $row) {
+        $daily_regs[$row['d']] = (int)$row['c'];
+    }
+} catch (Exception $e) {}
+// Build a normalized 14-day series (oldest -> newest)
+$reg_series = [];
+for ($i = 13; $i >= 0; $i--) {
+    $d = date('Y-m-d', strtotime("-$i days"));
+    $reg_series[] = [
+        'date'  => $d,
+        'count' => $daily_regs[$d] ?? 0,
+    ];
+}
+$reg_max = max(1, ...array_column($reg_series, 'count'));
+$reg_total = array_sum(array_column($reg_series, 'count'));
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -89,7 +114,82 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Owner Dashboard &mdash; HMS</title>
-    <link rel="stylesheet" href="../css/style.css?v=18">
+    <link rel="stylesheet" href="../css/style.css?v=19">
+    <style>
+        /* Quick Links icon */
+        .rp-link-row .rp-link-label { display: inline-flex; align-items: center; gap: 0.55rem; flex: 1; min-width: 0; }
+        .rp-link-row .rp-link-icon  { width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; color: var(--primary); flex-shrink: 0; }
+        .rp-link-row .rp-link-icon svg { width: 100%; height: 100%; stroke-width: 1.75; }
+
+        /* Calendar today-pill glow */
+        #nepali-cal .ncal-today {
+            box-shadow: 0 0 0 4px rgba(99,102,241,0.18), 0 6px 14px rgba(99,102,241,0.35) !important;
+            transform: scale(1.05);
+        }
+
+        /* Registrations chart */
+        .reg-chart-card { padding: 1.1rem 1.35rem 1.2rem; margin-bottom: 1.25rem; }
+        .reg-chart-head { margin-bottom: 1rem; }
+        .reg-chart-head h3 { font-size: 1.05rem; font-weight: 800; color: var(--text); margin: 0 0 0.4rem; letter-spacing: -0.015em; }
+        .reg-chart-head .reg-sub {
+            font-size: 0.9rem;
+            color: var(--muted);
+            line-height: 1.55;
+            max-width: 56ch;
+            margin: 0;
+        }
+        .reg-chart-head .reg-sub strong { color: var(--primary); font-weight: 800; }
+
+        .reg-chart {
+            display: grid;
+            grid-template-columns: repeat(14, 1fr);
+            gap: 0.45rem;
+            align-items: end;
+            height: 130px;
+            padding: 0.5rem 0 0;
+        }
+        .reg-bar {
+            position: relative;
+            border-radius: 5px 5px 2px 2px;
+            background: linear-gradient(180deg, #6366f1 0%, #818cf8 100%);
+            min-height: 4px;
+            transition: filter 0.15s ease, transform 0.15s ease;
+            cursor: default;
+        }
+        .reg-bar.empty { background: #e2e8f0; }
+        .reg-bar.today { background: linear-gradient(180deg, #4f46e5 0%, #6366f1 100%); box-shadow: 0 4px 10px rgba(99,102,241,0.35); }
+        .reg-bar:hover { filter: brightness(1.08); transform: translateY(-2px); }
+        .reg-bar .reg-tooltip {
+            position: absolute;
+            bottom: calc(100% + 6px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #0f172a;
+            color: #fff;
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 0.3rem 0.55rem;
+            border-radius: 6px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s ease;
+            z-index: 5;
+        }
+        .reg-bar:hover .reg-tooltip { opacity: 1; }
+        .reg-x-labels {
+            display: grid;
+            grid-template-columns: repeat(14, 1fr);
+            gap: 0.45rem;
+            margin-top: 0.5rem;
+            font-size: 0.65rem;
+            color: var(--muted);
+            font-weight: 600;
+            text-align: center;
+        }
+        .reg-x-labels span { overflow: hidden; text-overflow: ellipsis; }
+        .reg-x-labels span.today-label { color: var(--primary); font-weight: 800; }
+    </style>
 </head>
 <body>
 <?= render_sidebar('dashboard.php') ?>
@@ -119,8 +219,11 @@ try {
             <a class="stat-box stat-link stat-indigo" href="manage_rooms.php">
                 <div class="stat-icon-bubble"><?= get_svg_icon('bed') ?></div>
                 <div class="stat-label">Occupancy</div>
-                <div class="stat-value"><?= $occupied_rooms ?>/<?= $total_rooms ?></div>
+                <div class="stat-value" data-count="<?= $occupied_rooms ?>" data-suffix="/<?= $total_rooms ?>"><?= $occupied_rooms ?>/<?= $total_rooms ?></div>
                 <div class="stat-meta">Rooms occupied</div>
+                <div class="progress-track" style="margin-top:0.6rem;height:5px;">
+                    <div class="progress-bar" style="width:<?= $total_rooms ? round($occupied_rooms / $total_rooms * 100) : 0 ?>%;"></div>
+                </div>
             </a>
 
             <a class="stat-box stat-link stat-amber" href="enquiries.php">
@@ -144,6 +247,42 @@ try {
                 <div class="stat-meta">Pending verification</div>
             </a>
 
+        </div>
+
+        <!-- Registrations chart -->
+        <div class="card reg-chart-card">
+            <div class="reg-chart-head">
+                <div>
+                    <h3>Registrations &mdash; Last 14 Days</h3>
+                    <p class="reg-sub">
+                        <?php if ($reg_total === 0): ?>
+                            No new students joined in the past two weeks &mdash; share your enquiry link to bring more residents in.
+                        <?php elseif ($reg_total === 1): ?>
+                            One new student joined in the past two weeks.
+                        <?php else: ?>
+                            <strong><?= $reg_total ?></strong> new students joined in the past two weeks &mdash; that's an average of about <strong><?= round($reg_total / 14, 1) ?></strong> per day.
+                        <?php endif; ?>
+                    </p>
+                </div>
+            </div>
+            <div class="reg-chart">
+                <?php $today_str = date('Y-m-d'); foreach ($reg_series as $pt):
+                    $h_pct  = $reg_max > 0 ? round(($pt['count'] / $reg_max) * 100) : 0;
+                    $is_today = $pt['date'] === $today_str;
+                    $cls = 'reg-bar' . ($pt['count'] === 0 ? ' empty' : '') . ($is_today ? ' today' : '');
+                ?>
+                <div class="<?= $cls ?>" style="height:<?= max(4, $h_pct) ?>%;">
+                    <span class="reg-tooltip"><?= $pt['count'] ?> on <?= date('d M', strtotime($pt['date'])) ?></span>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <div class="reg-x-labels">
+                <?php foreach ($reg_series as $pt):
+                    $is_today = $pt['date'] === $today_str;
+                ?>
+                <span class="<?= $is_today ? 'today-label' : '' ?>"><?= date('d', strtotime($pt['date'])) ?></span>
+                <?php endforeach; ?>
+            </div>
         </div>
 
         <!-- Pending room approvals -->
@@ -224,9 +363,22 @@ try {
                     <table>
                         <thead><tr><th>Name</th><th>Email</th></tr></thead>
                         <tbody>
-                            <?php foreach ($wardens as $w): ?>
+                            <?php foreach ($wardens as $w):
+                                $wphoto = $w['photo'] ?? 'default.png';
+                                $wparts = array_values(array_filter(explode(' ', trim($w['name']))));
+                                $winit  = strtoupper(substr($wparts[0] ?? 'W', 0, 1)) . strtoupper(substr($wparts[1] ?? '', 0, 1));
+                            ?>
                             <tr>
-                                <td style="font-weight:600;"><?= e($w['name']) ?></td>
+                                <td>
+                                    <div style="display:flex;align-items:center;gap:0.65rem;">
+                                        <div class="rp-avatar" style="width:32px;height:32px;font-size:0.72rem;">
+                                            <?php if ($wphoto !== 'default.png'): ?>
+                                                <img src="../uploads/students/<?= rawurlencode($wphoto) ?>" alt="<?= e($w['name']) ?>" onerror="this.parentNode.textContent='<?= e($winit) ?>'">
+                                            <?php else: ?><?= e($winit) ?><?php endif; ?>
+                                        </div>
+                                        <span style="font-weight:600;"><?= e($w['name']) ?></span>
+                                    </div>
+                                </td>
                                 <td style="font-size:0.8rem;color:var(--muted);"><?= e($w['email']) ?></td>
                             </tr>
                             <?php endforeach; ?>
@@ -253,11 +405,24 @@ try {
                             <tr><th>Resident</th><th>Status</th></tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($recent_students as $s): ?>
+                            <?php foreach ($recent_students as $s):
+                                $sphoto = $s['photo'] ?? 'default.png';
+                                $sparts = array_values(array_filter(explode(' ', trim($s['name']))));
+                                $sinit  = strtoupper(substr($sparts[0] ?? 'S', 0, 1)) . strtoupper(substr($sparts[1] ?? '', 0, 1));
+                            ?>
                             <tr>
                                 <td>
-                                    <div style="font-weight:600;font-size:0.875rem;"><?= e($s['name']) ?></div>
-                                    <div style="font-size:0.78rem;color:var(--muted);"><?= e($s['email']) ?></div>
+                                    <div style="display:flex;align-items:center;gap:0.65rem;">
+                                        <div class="rp-avatar" style="width:32px;height:32px;font-size:0.72rem;">
+                                            <?php if ($sphoto !== 'default.png'): ?>
+                                                <img src="../uploads/students/<?= rawurlencode($sphoto) ?>" alt="<?= e($s['name']) ?>" onerror="this.parentNode.textContent='<?= e($sinit) ?>'">
+                                            <?php else: ?><?= e($sinit) ?><?php endif; ?>
+                                        </div>
+                                        <div style="min-width:0;">
+                                            <div style="font-weight:600;font-size:0.875rem;"><?= e($s['name']) ?></div>
+                                            <div style="font-size:0.76rem;color:var(--muted);"><?= e($s['email']) ?></div>
+                                        </div>
+                                    </div>
                                 </td>
                                 <td>
                                     <?php if ($s['room_number']): ?>
@@ -321,27 +486,27 @@ try {
         <div class="rp-card">
             <div class="rp-card-title">Quick Links</div>
             <a href="booking_approvals.php" class="rp-link-row">
-                Booking Approvals
+                <span class="rp-link-label"><span class="rp-link-icon"><?= get_svg_icon('clipboard') ?></span>Booking Approvals</span>
                 <span class="rp-link-count<?= $pending_bookings > 0 ? ' amber' : '' ?>"><?= $pending_bookings ?></span>
             </a>
             <a href="payments.php" class="rp-link-row">
-                Fee Tracking
+                <span class="rp-link-label"><span class="rp-link-icon"><?= get_svg_icon('money') ?></span>Fee Tracking</span>
                 <span class="rp-link-count<?= $pending_payments > 0 ? ' red' : '' ?>"><?= $pending_payments ?></span>
             </a>
             <a href="enquiries.php" class="rp-link-row">
-                Enquiries
+                <span class="rp-link-label"><span class="rp-link-icon"><?= get_svg_icon('message') ?></span>Enquiries</span>
                 <span class="rp-link-count<?= $unread_enq > 0 ? ' amber' : '' ?>"><?= $unread_enq ?></span>
             </a>
             <a href="manage_rooms.php" class="rp-link-row">
-                Manage Rooms
+                <span class="rp-link-label"><span class="rp-link-icon"><?= get_svg_icon('bed') ?></span>Manage Rooms</span>
                 <span class="rp-link-count"><?= $total_rooms ?></span>
             </a>
             <a href="report_attendance.php" class="rp-link-row">
-                Attendance Report
+                <span class="rp-link-label"><span class="rp-link-icon"><?= get_svg_icon('chart') ?></span>Attendance Report</span>
                 <span style="color:var(--muted);font-size:0.78rem;">&rsaquo;</span>
             </a>
             <a href="manage_staff.php" class="rp-link-row">
-                Manage Staff
+                <span class="rp-link-label"><span class="rp-link-icon"><?= get_svg_icon('users') ?></span>Manage Staff</span>
                 <span style="color:var(--muted);font-size:0.78rem;">&rsaquo;</span>
             </a>
         </div>
