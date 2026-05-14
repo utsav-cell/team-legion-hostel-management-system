@@ -9,30 +9,42 @@ require_role('warden');
 $name    = $_SESSION['user_name'];
 $success = $error = '';
 
-// Handle status update
+// Handle POST: update or delete
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify($_POST['csrf_token'] ?? '');
 
+    $action       = $_POST['action'] ?? 'update';
     $complaint_id = (int)($_POST['complaint_id'] ?? 0);
-    $new_status   = $_POST['status'] ?? '';
-    $reply        = trim($_POST['reply'] ?? '');
 
-    if (!in_array($new_status, ['open', 'resolved'])) {
-        $error = 'Invalid status selected.';
-    } elseif ($complaint_id <= 0) {
+    if ($complaint_id <= 0) {
         $error = 'Invalid complaint.';
-    } else {
-        $stmt = mysqli_prepare($conn,
-            "UPDATE complaints SET status = ?, reply = ?
-             WHERE id = ?");
-        mysqli_stmt_bind_param($stmt, 'ssi',
-            $new_status, $reply, $complaint_id);
+    } elseif ($action === 'delete') {
+        $stmt = mysqli_prepare($conn, "DELETE FROM complaints WHERE id = ?");
+        mysqli_stmt_bind_param($stmt, 'i', $complaint_id);
         if (mysqli_stmt_execute($stmt)) {
-            $success = 'Complaint updated successfully.';
+            $success = 'Complaint deleted.';
         } else {
-            $error = 'Failed to update. Please try again.';
+            $error = 'Failed to delete. Please try again.';
         }
         mysqli_stmt_close($stmt);
+    } else {
+        $new_status = $_POST['status'] ?? '';
+        $reply      = trim($_POST['reply'] ?? '');
+        if (!in_array($new_status, ['open', 'resolved'])) {
+            $error = 'Invalid status selected.';
+        } else {
+            $stmt = mysqli_prepare($conn,
+                "UPDATE complaints SET status = ?, reply = ?
+                 WHERE id = ?");
+            mysqli_stmt_bind_param($stmt, 'ssi',
+                $new_status, $reply, $complaint_id);
+            if (mysqli_stmt_execute($stmt)) {
+                $success = 'Complaint updated successfully.';
+            } else {
+                $error = 'Failed to update. Please try again.';
+            }
+            mysqli_stmt_close($stmt);
+        }
     }
 }
 
@@ -57,14 +69,14 @@ $resolved = $total - $open;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Complaints — HMS</title>
-    <link rel="stylesheet" href="../css/style.css?v=2">
+    <link rel="stylesheet" href="../css/style.css?v=34">
 </head>
 <body>
 <?php echo render_sidebar('complaints.php'); ?>
+<?= render_topbar() ?>
 <div class="container">
     <div class="page-header">
         <h1>Student Complaints</h1>
-        <p>Review and respond to issues raised by students</p>
     </div>
 
     <?php if ($success): ?>
@@ -160,9 +172,21 @@ $resolved = $total - $open;
                                       border:1px solid var(--border);
                                       border-radius:8px; font-size:0.875rem;">
                     </div>
-                    <button type="submit" class="btn btn-primary"
+                    <button type="submit" name="action" value="update" class="btn btn-primary"
                             style="padding:0.5rem 1rem; font-size:0.875rem;">
                         Update
+                    </button>
+                </form>
+
+                <!-- Delete form (separate, with confirm modal) -->
+                <form method="post" style="margin-top:0.5rem;text-align:right;"
+                      data-confirm="Delete this complaint from <?= htmlspecialchars($c['student_name'], ENT_QUOTES) ?>? This cannot be undone.">
+                    <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
+                    <input type="hidden" name="complaint_id" value="<?= (int)$c['id'] ?>">
+                    <input type="hidden" name="action" value="delete">
+                    <button type="submit"
+                            style="background:none;border:none;color:#dc2626;font-size:0.78rem;font-weight:700;cursor:pointer;padding:0.25rem 0;font-family:inherit;">
+                        Delete complaint
                     </button>
                 </form>
             </div>
@@ -174,5 +198,6 @@ $resolved = $total - $open;
         <?php endif; ?>
     </div>
 </div>
+<script src="../js/script.js"></script>
 </body>
 </html>

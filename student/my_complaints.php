@@ -52,14 +52,14 @@ mysqli_stmt_close($stmt2);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Complaints — HMS</title>
-    <link rel="stylesheet" href="../css/style.css?v=2">
+    <link rel="stylesheet" href="../css/style.css?v=34">
 </head>
 <body>
 <?php echo render_sidebar('my_complaints.php'); ?>
+<?= render_topbar() ?>
 <div class="container">
     <div class="page-header">
         <h1>Complaints</h1>
-        <p>Report issues and track your requests</p>
     </div>
 
     <?php if ($error):  ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
