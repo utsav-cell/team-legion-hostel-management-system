@@ -1,4 +1,11 @@
 <?php
+// ─────────────────────────────────────────────────
+// api/submit_enquiry.php — Public enquiry form endpoint
+//   Receives a POST from the landing page's "Schedule a Visit" form,
+//   validates inputs + CSRF, and inserts a new row into `enquiries` so the
+//   owner can read/reply from owner/enquiries.php. Returns JSON.
+// ─────────────────────────────────────────────────
+
 require_once '../db.php';
 header('Content-Type: application/json');
 
