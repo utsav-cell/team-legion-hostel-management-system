@@ -1,19 +1,55 @@
-# Dependencies
+# ──────────────────────────────────────────────
+# HMS — Hostel Management System
+# .gitignore
+# ──────────────────────────────────────────────
+
+# ─── Dependencies ─────────────────────────────
 /vendor/
+/node_modules/
 
-# Local config (secrets)
-/config/config.php
+# ─── Local config & secrets ───────────────────
+# Never commit real credentials. Use config.example.php as the template.
+/config.php
+/.env
+/.env.*
 
-# Environment files
-.env
-.env.*
+# ─── User-generated content ───────────────────
+# Keep the folder structure (via .gitkeep) but skip everything users upload.
+/uploads/students/*
+/uploads/rooms/*
+!/uploads/students/.gitkeep
+!/uploads/students/default.png
+!/uploads/rooms/.gitkeep
 
-# Logs and caches
+# ─── Logs & caches ────────────────────────────
+/logs/*
+!/logs/.gitkeep
 *.log
 /tmp/
 /cache/
 
-# OS / editor files
+# ─── Build / temp / backup files ──────────────
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
+
+# ─── OS / editor metadata ─────────────────────
 .DS_Store
 Thumbs.db
+desktop.ini
 .vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# ─── PHP debug / coverage ─────────────────────
+*.phpunit.result.cache
+.phpunit.cache/
+/coverage/
+
+# ─── One-shot / dev-only files (deleted from repo) ─
+# Listed here as a reminder in case someone re-adds them.
+/migrate.php
+/populate_data.php
