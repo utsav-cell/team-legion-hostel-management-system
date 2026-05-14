@@ -1,15 +1,15 @@
-<?php
+﻿<?php
 // ─────────────────────────────────────────────────
 // login.php — Login, Registration and 2FA Verification
 // ─────────────────────────────────────────────────
 
-require_once 'db.php';
-require_once 'mailer.php';
+require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/mailer.php';
 
 // Redirect already logged in users
 $auth = get_auth();
 if ($auth) {
-    header('Location: ' . $auth['role'] . '/dashboard.php');
+    header('Location: ../' . $auth['role'] . '/dashboard.php');
     exit;
 }
 
@@ -18,6 +18,7 @@ if ($mode === 'verify') {
     $mode = 'login';
 }
 $error = $success = '';
+if (isset($_GET['msg'])) $success = trim($_GET['msg']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $res = ['success' => false, 'message' => ''];
@@ -51,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             set_auth($u);
             $res['success']  = true;
-            $res['redirect'] = $u['role'] . '/dashboard.php';
+            $res['redirect'] = '../' . $u['role'] . '/dashboard.php';
         }
 
         // ── REGISTRATION ───────────────────────────
@@ -69,9 +70,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
                 throw new Exception('Please enter a valid email address.');
             }
-            if (strlen($pass) < 6) {
-                throw new Exception('Password must be at least 6 characters.');
-            }
+            $pw_err = validate_strong_password($pass);
+            if ($pw_err) throw new Exception($pw_err);
             if ($pass !== $conf) {
                 throw new Exception('Passwords do not match.');
             }
@@ -82,39 +82,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception('This email is already registered.');
             }
 
+            $photo_name = 'default.png';
+            if (!empty($_FILES['photo']['name'])) {
+                $ext = strtolower(pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION));
+                if (!in_array($ext, ['jpg', 'jpeg', 'png'])) throw new Exception('Only JPG/PNG allowed.');
+                $photo_name = 'user_' . time() . '.' . $ext;
+                // Photos live under the project-root uploads/ folder so all roles
+                // (student/warden/owner) read from a single canonical path.
+                $upload_dir = __DIR__ . '/../uploads/students';
+                if (!is_dir($upload_dir)) {
+                    mkdir($upload_dir, 0755, true);
+                }
+                if (!move_uploaded_file($_FILES['photo']['tmp_name'], $upload_dir . '/' . $photo_name)) {
+                    throw new Exception('Failed to upload photo.');
+                }
+            }
+
             $hash = password_hash($pass, PASSWORD_DEFAULT);
 
             $otp = (string) random_int(100000, 999999);
             $otp_expiry = date('Y-m-d H:i:s', time() + 600);
 
-            $ins = $pdo->prepare(
-                'INSERT INTO users (name, email, student_phone, password, role, room_preference, is_verified, otp_code, otp_expiry)
-                 VALUES (?, ?, ?, ?, \'student\', ?, 0, ?, ?)'
-            );
-
-            if ($ins->execute([$name, $email, $phone, $hash, $pref, $otp, $otp_expiry])) {
-                $safe_name = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
-                $email_sent = false;
-                try {
-                    $safe_otp = htmlspecialchars($otp, ENT_QUOTES, 'UTF-8');
-                    $body = "<p>Hi {$safe_name},</p>"
-                        . "<p>Use this OTP to verify your email address:</p>"
-                        . "<h2 style=\"letter-spacing:2px;\">{$safe_otp}</h2>"
-                        . "<p>This code expires in 10 minutes.</p>";
-                    send_app_mail($email, $name, 'Verify your email - HMS', $body);
-                    $email_sent = true;
-                } catch (Exception $mail_ex) {
-                    $email_sent = false;
+            $pdo->beginTransaction();
+            try {
+                $ins = $pdo->prepare(
+                    'INSERT INTO users (name, email, student_phone, password, role, room_preference, photo, is_verified, otp_code, otp_expiry, otp_created_at, otp_attempts)
+                     VALUES (?, ?, ?, ?, \'student\', ?, ?, 0, ?, ?, NOW(), 0)'
+                );
+                if (!$ins->execute([$name, $email, $phone, $hash, $pref, $photo_name, $otp, $otp_expiry])) {
+                    throw new Exception('Registration failed.');
                 }
 
-                $res['success'] = true;
-                $res['message'] = $email_sent
-                    ? "Account created! Check your email for the OTP to verify your account."
-                    : "Account created! OTP email could not be sent. Please contact admin.";
-                $res['redirect'] = "verify.php?email=" . urlencode($email);
-            } else {
-                throw new Exception('Registration failed.');
+                $safe_otp = htmlspecialchars($otp, ENT_QUOTES, 'UTF-8');
+                $body = '<div style="text-align:center; margin:8px 0 18px;">'
+                      .   '<div style="display:inline-block; background:#eef4ff; padding:18px 28px; border-radius:14px; border:2px dashed #3b82f6;">'
+                      .     '<div style="font-family:\'Courier New\',monospace; font-size:34px; font-weight:900; color:#1d4ed8; letter-spacing:0.45em; padding-left:0.45em;">' . $safe_otp . '</div>'
+                      .   '</div>'
+                      . '</div>'
+                      . '<p style="margin:0;">This code expires in <strong>10 minutes</strong>. Type it on the verification page to finish creating your account.</p>';
+                $html = render_branded_email([
+                    'name'      => $name,
+                    'kicker'    => 'Verify your email',
+                    'title'     => 'Welcome to HMS — confirm it\'s you',
+                    'intro'     => 'Almost done. Use this one-time code to activate your hostel account.',
+                    'body_html' => $body,
+                    'footnote'  => 'Didn\'t request this? You can safely ignore — your address won\'t be added until the code is entered.',
+                ]);
+                send_app_mail($email, $name, 'Your HMS verification code: ' . $otp, $html);
+
+                $pdo->commit();
+            } catch (Exception $regEx) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                throw new Exception('Could not send verification email. ' . $regEx->getMessage());
             }
+
+            $res['success']  = true;
+            $res['message']  = 'Account created! Check your email for the OTP to verify your account.';
+            $res['redirect'] = 'verify.php?email=' . urlencode($email);
         }
 
 
@@ -142,7 +168,7 @@ $verify_email = $_GET['email'] ?? '';
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HMS — <?= ucfirst($mode) ?></title>
-    <link rel="stylesheet" href="css/style.css?v=4">
+    <link rel="stylesheet" href="../css/style.css?v=34">
     <style>
         body {
             background: #f8fafc;
@@ -159,21 +185,66 @@ $verify_email = $_GET['email'] ?? '';
         .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
         .password-wrapper { position:relative; }
         .toggle-pwd { position:absolute; right:10px; top:50%; transform:translateY(-50%); cursor:pointer; color:var(--text-muted); font-size:0.8rem; background:none; border:none; padding:4px 8px; }
+        .pw-hint {
+            display:block; margin-top:.45rem;
+            font-size:.75rem; color:var(--text-muted); line-height:1.4;
+        }
+        /* Shake the card when the server returned a login error — drawing
+           the eye to the toast that's about to fade in. */
+        .auth-card.has-error { animation: shake .55s cubic-bezier(0.36, 0.07, 0.19, 0.97); }
+        @keyframes shake {
+            10%,90% { transform: translateX(-1px); }
+            20%,80% { transform: translateX(2px); }
+            30%,50%,70% { transform: translateX(-4px); }
+            40%,60% { transform: translateX(4px); }
+        }
+        /* Persistent inline error banner (not hijacked by the toast layer) */
+        .login-error {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            background: var(--panel-alt);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.65rem 0.85rem;
+            font-size: 0.85rem;
+            font-weight: 500;
+            line-height: 1.4;
+            margin-bottom: 1rem;
+        }
+        .login-error .login-error-icon {
+            flex: 0 0 auto;
+            width: 16px;
+            height: 16px;
+            stroke: var(--muted);
+            fill: none;
+            stroke-width: 2;
+        }
         @media(max-width:600px) { .grid-2 { grid-template-columns:1fr; } }
     </style>
 </head>
 <body>
 <div class="auth-container" style="<?= $mode === 'register' ? 'padding:2rem 1rem;' : '' ?>">
-    <div class="auth-card" style="<?= $mode === 'register' ? 'max-width:600px;' : '' ?>">
+    <div class="auth-card<?= $error ? ' has-error' : '' ?>" style="<?= $mode === 'register' ? 'max-width:600px;' : '' ?>">
         <div class="auth-header">
             <h1>HMS</h1>
             <p><?= $mode === 'login' ? 'Login' : ($mode === 'register' ? 'Create Account' : 'Verify Email') ?></p>
         </div>
 
-        <?php if ($error): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
+        <?php if ($error): ?>
+            <div class="login-error" role="alert" aria-live="assertive">
+                <svg class="login-error-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <span><?= e($error) ?></span>
+            </div>
+        <?php endif; ?>
         <?php if ($success): ?><div class="alert alert-success"><?= e($success) ?></div><?php endif; ?>
 
-        <form method="post">
+        <form method="post" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
                 <input type="hidden" id="action" name="action" value="<?= $mode === 'login' ? 'login' : 'register' ?>">
 
@@ -193,6 +264,11 @@ $verify_email = $_GET['email'] ?? '';
                             </select>
                         </div>
                     </div>
+                    <div class="form-group">
+                        <label>Profile Photo</label>
+                        <input name="photo" type="file" required accept="image/*">
+                        <small style="color:var(--text-muted);">Please upload a clear face photo</small>
+                    </div>
                 <?php else: ?>
                     <div class="form-group"><label>Email Address</label><input name="email" type="email" required></div>
                 <?php endif; ?>
@@ -200,9 +276,13 @@ $verify_email = $_GET['email'] ?? '';
                 <div class="form-group">
                     <label>Password</label>
                     <div class="password-wrapper">
-                        <input name="password" id="pass1" type="password" required minlength="6">
+                        <input name="password" id="pass1" type="password" required minlength="6"
+                               <?= $mode === 'register' ? 'pattern="(?=.*[A-Z])(?=.*[a-z])(?=.*\d).{6,}" title="At least 6 characters with an uppercase letter, a lowercase letter and a number."' : '' ?>>
                         <button type="button" class="toggle-pwd" onclick="togglePwd('pass1', this)">Show</button>
                     </div>
+                    <?php if ($mode === 'register'): ?>
+                        <small class="pw-hint"><?= e(password_rules_hint()) ?></small>
+                    <?php endif; ?>
                 </div>
 
                 <?php if ($mode === 'login'): ?>
