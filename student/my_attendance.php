@@ -35,10 +35,11 @@ $pct    = $total > 0 ? round($present / $total * 100, 1) : 0;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Attendance — HMS</title>
-    <link rel="stylesheet" href="../css/style.css?v=2">
+    <link rel="stylesheet" href="../css/style.css?v=34">
 </head>
 <body>
 <?php echo render_sidebar('my_attendance.php'); ?>
+<?= render_topbar() ?>
 <div class="container">
     <div class="page-header">
         <h1>Attendance History</h1>
