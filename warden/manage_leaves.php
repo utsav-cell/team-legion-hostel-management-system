@@ -25,14 +25,14 @@ $active = 'manage_leaves.php';
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manage Leaves — Warden Dashboard</title>
-    <link rel="stylesheet" href="../css/style.css?v=2">
+    <link rel="stylesheet" href="../css/style.css?v=34">
 </head>
 <body>
 <?php echo render_sidebar($active); ?>
+<?= render_topbar() ?>
 <div class="container">
     <div class="page-header">
         <h1>Pending Leave Requests</h1>
-        <p>Review student leave applications (Requires 1st Level Approval)</p>
     </div>
 
     <?php if (empty($pending)): ?>
@@ -58,7 +58,7 @@ $active = 'manage_leaves.php';
                         <input type="hidden" name="leave_id" value="<?= (int)$l['id'] ?>">
                         <button type="submit" name="approve" class="btn btn-primary" style="background: #16a34a; font-size: 0.85rem;">Approve</button>
                     </form>
-                    <form method="post" onsubmit="return confirm('Reject this leave?')">
+                    <form method="post" data-confirm="Reject this leave?">
                         <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
                         <input type="hidden" name="leave_id" value="<?= (int)$l['id'] ?>">
                         <button type="submit" name="reject" class="btn" style="color: var(--danger); border: 1px solid var(--danger-soft); font-size: 0.85rem;">Reject</button>
