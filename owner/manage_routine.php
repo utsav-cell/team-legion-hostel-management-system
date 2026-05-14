@@ -25,14 +25,14 @@ $active = 'manage_routine.php';
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manage Routine — Owner Dashboard</title>
-    <link rel="stylesheet" href="../css/style.css?v=2">
+    <link rel="stylesheet" href="../css/style.css?v=34">
 </head>
 <body>
 <?php echo render_sidebar($active); ?>
+<?= render_topbar() ?>
 <div class="container">
     <div class="page-header">
         <h1>Student Daily Routine</h1>
-        <p>Manage the official schedule for all hostel residents</p>
     </div>
 
     <?php if (isset($success)): ?><div class="alert alert-success"><?= $success ?></div><?php endif; ?>
