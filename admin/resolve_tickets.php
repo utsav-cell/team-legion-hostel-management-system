@@ -274,5 +274,6 @@ function toggleResolveForm(id) {
     if (toggle && sidebar) toggle.addEventListener('click', () => sidebar.classList.toggle('open'));
 })();
 </script>
+<script src="../js/script.js"></script>
 </body>
 </html>

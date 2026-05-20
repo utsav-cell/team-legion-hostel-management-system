@@ -328,7 +328,7 @@ if (!$is_self) {
     </style>
 </head>
 <body>
-<?= render_sidebar('profile.php') ?>
+<?= render_sidebar('profile.php', '../' . $viewer_role . '/') ?>
 <?= render_topbar() ?>
 
 <div class="container">

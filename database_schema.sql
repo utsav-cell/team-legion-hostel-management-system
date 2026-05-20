@@ -2,8 +2,8 @@
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 SET time_zone = "+00:00";
 
-CREATE DATABASE IF NOT EXISTS hostel2 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE hostel2;
+CREATE DATABASE IF NOT EXISTS hostel3 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE hostel3;
 
 -- TABLE: users
 CREATE TABLE IF NOT EXISTS `users` (

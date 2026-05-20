@@ -6,12 +6,12 @@ require_role('student');
 
 $name  = $_SESSION['user_name'];
 $today = date('Y-m-d');
-$menu = [];
-$res  = mysqli_query($conn, "SELECT meal_time, menu, menu_date FROM food_routine WHERE menu_date = '$today' ORDER BY FIELD(meal_time,'breakfast','lunch','dinner')");
-if (mysqli_num_rows($res) === 0) {
-    $res = mysqli_query($conn, "SELECT meal_time, menu, menu_date FROM food_routine ORDER BY menu_date DESC, FIELD(meal_time,'breakfast','lunch','dinner') LIMIT 21");
+$stmt = $pdo->prepare("SELECT meal_time, menu, menu_date FROM food_routine WHERE menu_date = ? ORDER BY FIELD(meal_time,'breakfast','lunch','dinner')");
+$stmt->execute([$today]);
+$menu = $stmt->fetchAll();
+if (!$menu) {
+    $menu = $pdo->query("SELECT meal_time, menu, menu_date FROM food_routine ORDER BY menu_date DESC, FIELD(meal_time,'breakfast','lunch','dinner') LIMIT 21")->fetchAll();
 }
-while ($r = mysqli_fetch_assoc($res)) $menu[] = $r;
 
 $role = 'student'; $active = 'food_routine.php';
 ?>

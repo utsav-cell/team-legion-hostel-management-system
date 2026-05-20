@@ -208,12 +208,11 @@ foreach ($students as $s) {
 }
 
 // Available rooms for dropdown
-$avail_rooms = [];
-$rr = mysqli_query($conn,
+$avail_rooms = $pdo->query(
     "SELECT id, room_number, room_type, floor
      FROM rooms WHERE status = 'available'
-     ORDER BY room_number ASC");
-while ($r = mysqli_fetch_assoc($rr)) $avail_rooms[] = $r;
+     ORDER BY room_number ASC"
+)->fetchAll();
 
 // Students without rooms for dropdown (uses full list, not paged)
 $unassigned = array_filter($students, fn($s) => !$s['room_id']);

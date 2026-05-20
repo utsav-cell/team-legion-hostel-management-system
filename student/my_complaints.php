@@ -20,31 +20,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$subject || !$message) {
         $error = 'Subject and message are required.';
     } else {
-        $stmt = mysqli_prepare($conn,
-            "INSERT INTO complaints
-             (student_id, subject, message, status, created_at)
-             VALUES (?, ?, ?, 'open', NOW())");
-        mysqli_stmt_bind_param($stmt, 'iss', $uid, $subject, $message);
-        if (mysqli_stmt_execute($stmt)) {
+        try {
+            $stmt = $pdo->prepare(
+                "INSERT INTO complaints
+                 (student_id, subject, message, status, created_at)
+                 VALUES (?, ?, ?, 'open', NOW())"
+            );
+            $stmt->execute([$uid, $subject, $message]);
             $success = 'Complaint submitted successfully.';
-        } else {
+        } catch (PDOException $e) {
             $error = 'Failed to submit. Please try again.';
         }
-        mysqli_stmt_close($stmt);
     }
 }
 
 // Fetch this student's complaints — prepared statement
-$complaints = [];
-$stmt2 = mysqli_prepare($conn,
+$stmt2 = $pdo->prepare(
     "SELECT subject, message, status, reply, created_at
      FROM complaints WHERE student_id = ?
-     ORDER BY created_at DESC");
-mysqli_stmt_bind_param($stmt2, 'i', $uid);
-mysqli_stmt_execute($stmt2);
-$res = mysqli_stmt_get_result($stmt2);
-while ($r = mysqli_fetch_assoc($res)) $complaints[] = $r;
-mysqli_stmt_close($stmt2);
+     ORDER BY created_at DESC"
+);
+$stmt2->execute([$uid]);
+$complaints = $stmt2->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="en">
