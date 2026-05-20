@@ -6,34 +6,20 @@ require_role('owner');
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve'])) {
     csrf_verify($_POST['csrf_token'] ?? '');
     $id = (int)$_POST['leave_id'];
-    mysqli_query($conn, "UPDATE leaves SET owner_status = 'approved', final_status = 'approved' WHERE id = $id AND warden_status = 'approved'");
-    
-    // Log Email to Student
-    $res = mysqli_query($conn, "SELECT l.*, u.name, u.email FROM leaves l JOIN users u ON l.student_id = u.id WHERE l.id = $id");
-    $l = mysqli_fetch_assoc($res);
-    if ($l) {
-        // Leave approved by owner; no email notification is sent.
-    }
-    
+    $pdo->prepare("UPDATE leaves SET owner_status = 'approved', final_status = 'approved' WHERE id = ? AND warden_status = 'approved'")
+        ->execute([$id]);
     header("Location: manage_leaves.php"); exit;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reject'])) {
     csrf_verify($_POST['csrf_token'] ?? '');
     $id = (int)$_POST['leave_id'];
-    mysqli_query($conn, "UPDATE leaves SET owner_status = 'rejected', final_status = 'rejected' WHERE id = $id");
-    
-    $res = mysqli_query($conn, "SELECT l.*, u.name, u.email FROM leaves l JOIN users u ON l.student_id = u.id WHERE l.id = $id");
-    $l = mysqli_fetch_assoc($res);
-    if ($l) {
-        // Leave rejected by owner; no email notification is sent.
-    }
-    
+    $pdo->prepare("UPDATE leaves SET owner_status = 'rejected', final_status = 'rejected' WHERE id = ?")
+        ->execute([$id]);
     header("Location: manage_leaves.php"); exit;
 }
 
-$res = mysqli_query($conn, "SELECT l.*, u.name as student_name FROM leaves l JOIN users u ON l.student_id = u.id WHERE l.warden_status = 'approved' AND l.owner_status = 'pending' ORDER BY l.created_at ASC");
-$pending = []; while($p = mysqli_fetch_assoc($res)) $pending[] = $p;
+$pending = $pdo->query("SELECT l.*, u.name as student_name FROM leaves l JOIN users u ON l.student_id = u.id WHERE l.warden_status = 'approved' AND l.owner_status = 'pending' ORDER BY l.created_at ASC")->fetchAll();
 
 $active = 'manage_leaves.php';
 ?>

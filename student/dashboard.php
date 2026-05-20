@@ -5,35 +5,35 @@ require_role('student');
 
 $uid   = (int)$_SESSION['user_id'];
 $name  = $_SESSION['user_name'];
-$photo = $_SESSION['user_photo'] ?? 'default.png';
+$photo = $_SESSION['user_photo'] ?? 'default.png'; 
 
 // Avatar initials
 $parts    = array_values(array_filter(explode(' ', trim($name))));
 $initials = strtoupper(substr($parts[0] ?? 'S', 0, 1)) . strtoupper(substr($parts[1] ?? '', 0, 1));
 $photo_url = ($photo !== 'default.png') ? '../uploads/students/' . rawurlencode($photo) : null;
 
-// Room info — prefer the user's active/approved booking (canonical source per db.php:250),
-// fall back to legacy users.room_id only when no booking exists.
-$room = null;
-try {
-    $stmt = $pdo->prepare(
-        "SELECT
-            COALESCE(rb.room_number, rl.room_number) AS room_number,
-            COALESCE(rb.room_type,   rl.room_type)   AS room_type,
-            COALESCE(rb.floor,       rl.floor)       AS floor,
-            u.room_status, u.fee_status
-         FROM users u
-         LEFT JOIN rooms rl ON rl.id = u.room_id
-         LEFT JOIN rooms rb ON rb.id = (
-             SELECT b.room_id FROM bookings b
-             WHERE b.student_id = u.id AND b.status IN ('approved','active')
-             ORDER BY b.created_at DESC LIMIT 1
-         )
-         WHERE u.id = ? LIMIT 1"
-    );
-    $stmt->execute([$uid]);
-    $room = $stmt->fetch();
-} catch (Exception $e) {}
+    // Room info — prefer the user's active/approved booking (canonical source per db.php:250),
+    // fall back to legacy users.room_id only when no booking exists.
+    $room = null;
+    try {
+        $stmt = $pdo->prepare(
+            "SELECT
+                COALESCE(rb.room_number, rl.room_number) AS room_number,
+                COALESCE(rb.room_type,   rl.room_type)   AS room_type,
+                COALESCE(rb.floor,       rl.floor)       AS floor,
+                u.room_status, u.fee_status
+            FROM users u
+            LEFT JOIN rooms rl ON rl.id = u.room_id
+            LEFT JOIN rooms rb ON rb.id = (
+                SELECT b.room_id FROM bookings b
+                WHERE b.student_id = u.id AND b.status IN ('approved','active')
+                ORDER BY b.created_at DESC LIMIT 1
+            )
+            WHERE u.id = ? LIMIT 1"
+        );
+        $stmt->execute([$uid]);
+        $room = $stmt->fetch();
+    } catch (Exception $e) {}
 
 // Attendance
 $total = $present = 0;

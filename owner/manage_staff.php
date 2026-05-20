@@ -9,10 +9,8 @@ if (isset($_POST['relocate_staff'])) {
     $id = (int)$_POST['staff_id'];
     $new_area = $_POST['new_area'];
 
-    $stmt = mysqli_prepare($conn, "UPDATE staff SET allocation = ? WHERE id = ?");
-    mysqli_stmt_bind_param($stmt, 'si', $new_area, $id);
-    mysqli_stmt_execute($stmt);
-    mysqli_stmt_close($stmt);
+    $pdo->prepare("UPDATE staff SET allocation = ? WHERE id = ?")
+        ->execute([$new_area, $id]);
     $success = "Staff member successfully relocated!";
 }
 
@@ -23,17 +21,14 @@ if (isset($_POST['add_staff'])) {
     $area = trim($_POST['allocation'] ?? '');
 
     if ($name && $role && $area) {
-        $stmt = mysqli_prepare($conn, "INSERT INTO staff (name, role, allocation) VALUES (?, ?, ?)");
-        mysqli_stmt_bind_param($stmt, 'sss', $name, $role, $area);
-        mysqli_stmt_execute($stmt);
-        mysqli_stmt_close($stmt);
+        $pdo->prepare("INSERT INTO staff (name, role, allocation) VALUES (?, ?, ?)")
+            ->execute([$name, $role, $area]);
         $success = "New staff member deployed successfully!";
     }
 }
 
 // Fetch all staff
-$res = mysqli_query($conn, "SELECT * FROM staff ORDER BY name ASC");
-$staff_list = []; while($s = mysqli_fetch_assoc($res)) $staff_list[] = $s;
+$staff_list = $pdo->query("SELECT * FROM staff ORDER BY name ASC")->fetchAll();
 
 // Helper: derive a color theme + icon from a staff role keyword
 function staff_role_theme(string $role): array {

@@ -230,6 +230,7 @@ $recent_tickets = $pdo->query(
 
 <?= render_footer() ?>
 
+<script src="../js/script.js"></script>
 <script>
 (function(){
     const toggle = document.querySelector('.sidebar-toggle');

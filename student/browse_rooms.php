@@ -269,7 +269,9 @@ $qs = function(array $extra) use ($f_type,$f_floor,$f_max) {
         .room-capacity strong { color:var(--text); }
         .room-features { list-style:none;display:grid;gap:0.35rem;margin-bottom:1.1rem; }
         .room-features li { display:flex;align-items:center;gap:0.55rem;font-size:0.8rem;color:#334155; }
+        html[data-theme="dark"] .room-features li { color: var(--text); }
         .feat-dot { display:inline-block;flex-shrink:0;width:6px;height:6px;border-radius:2px;background:var(--primary);opacity:0.7; }
+        html[data-theme="dark"] .feat-dot { opacity: 1; }
         .room-notes { font-size:0.78rem;color:var(--muted);margin-bottom:0.875rem;padding:0.5rem 0.75rem;background:var(--panel-alt);border-radius:7px; }
         .pagination { display:flex;gap:0.4rem;justify-content:center;margin-top:1.5rem;flex-wrap:wrap; }
         .pagination a, .pagination span { padding:0.4rem 0.85rem;border-radius:8px;border:1.5px solid var(--border);color:var(--text);font-weight:700;font-size:0.82rem;text-decoration:none;transition:background 0.15s ease; }

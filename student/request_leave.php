@@ -17,17 +17,16 @@ if (isset($_POST['apply_leave'])) {
     } elseif ($end < $start) {
         $error = 'End date must be the same or after the start date.';
     } else {
-        $stmt = mysqli_prepare($conn, "INSERT INTO leaves (student_id, reason, start_date, end_date) VALUES (?, ?, ?, ?)");
-        mysqli_stmt_bind_param($stmt, 'isss', $student_id, $reason, $start, $end);
-        mysqli_stmt_execute($stmt);
-        mysqli_stmt_close($stmt);
+        $stmt = $pdo->prepare("INSERT INTO leaves (student_id, reason, start_date, end_date) VALUES (?, ?, ?, ?)");
+        $stmt->execute([$student_id, $reason, $start, $end]);
         $success = "Leave request submitted! It now requires approval from both the Warden and the Owner.";
     }
 }
 
 // Fetch existing leaves
-$res = mysqli_query($conn, "SELECT * FROM leaves WHERE student_id = $student_id ORDER BY created_at DESC");
-$leaves = []; while($l = mysqli_fetch_assoc($res)) $leaves[] = $l;
+$stmt = $pdo->prepare("SELECT * FROM leaves WHERE student_id = ? ORDER BY created_at DESC");
+$stmt->execute([$student_id]);
+$leaves = $stmt->fetchAll();
 
 $active = 'request_leave.php';
 ?>

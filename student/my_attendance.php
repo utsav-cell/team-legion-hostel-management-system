@@ -10,20 +10,17 @@ $uid  = (int)$_SESSION['user_id'];
 $name = $_SESSION['user_name'];
 
 // Get attendance records — prepared statement
-$stmt = mysqli_prepare($conn,
+$stmt = $pdo->prepare(
     "SELECT date, status FROM attendance
      WHERE student_id = ?
-     ORDER BY date DESC");
-mysqli_stmt_bind_param($stmt, 'i', $uid);
-mysqli_stmt_execute($stmt);
-$att_res = mysqli_stmt_get_result($stmt);
-mysqli_stmt_close($stmt);
+     ORDER BY date DESC"
+);
+$stmt->execute([$uid]);
+$records = $stmt->fetchAll();
 
-$records = [];
-$total = $present = 0;
-while ($r = mysqli_fetch_assoc($att_res)) {
-    $records[] = $r;
-    $total++;
+$total = count($records);
+$present = 0;
+foreach ($records as $r) {
     if ($r['status'] === 'present') $present++;
 }
 $absent = $total - $present;

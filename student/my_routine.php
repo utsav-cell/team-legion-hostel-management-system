@@ -2,8 +2,7 @@
 require_once '../db.php';
 require_role('student');
 
-$res = mysqli_query($conn, "SELECT * FROM daily_routine ORDER BY id ASC");
-$routine = []; while($r = mysqli_fetch_assoc($res)) $routine[] = $r;
+$routine = $pdo->query("SELECT * FROM daily_routine ORDER BY id ASC")->fetchAll();
 
 $active = 'my_routine.php';
 ?>

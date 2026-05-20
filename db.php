@@ -3,8 +3,7 @@
 // db.php — Core: DB connections, auth, helpers, sidebar, auto-migrations
 //   Every page in the app starts with `require_once 'db.php'`. This file:
 //     • Loads config.php and exposes app_config() for typed reads.
-//     • Opens BOTH a PDO connection ($pdo) and a mysqli connection ($conn)
-//       — older pages still use mysqli, newer ones use PDO.
+//     • Opens a PDO connection ($pdo) used by every page in the app.
 //     • Runs idempotent CREATE TABLE / ALTER TABLE migrations on every
 //       request so a fresh `git pull` self-heals the schema.
 //     • Provides JWT-cookie auth (set_auth / get_auth / revoke_user_tokens),
@@ -41,9 +40,18 @@ define('DB_USER', app_config('DB_USER', 'root'));
 define('DB_PASS', app_config('DB_PASS', ''));
 define('DB_NAME', app_config('DB_NAME', 'hostel2'));
 define('JWT_SECRET', app_config('JWT_SECRET', 'hms_secure_key_2024_change_this'));
-mysqli_report(MYSQLI_REPORT_OFF);
-$conn = @mysqli_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME);
-if (!$conn) {
+try {
+    $pdo = new PDO(
+        'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4',
+        DB_USER,
+        DB_PASS,
+        [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES   => false,
+        ]
+    );
+} catch (PDOException $ex) {
     http_response_code(500);
     ?>
     <!DOCTYPE html>
@@ -75,67 +83,69 @@ if (!$conn) {
                 <li>If your localhost password or database name is different, copy <strong>config.example.php</strong> to <strong>config.php</strong> and update it.</li>
             </ul>
             <pre>mysql -u root -p &lt; database_schema.sql</pre>
-            <p>MySQL error: <?= htmlspecialchars(mysqli_connect_error()) ?></p>
+            <p>MySQL error: <?= htmlspecialchars($ex->getMessage()) ?></p>
         </div>
     </body>
     </html>
     <?php
     exit;
 }
-mysqli_set_charset($conn, 'utf8mb4');
 
-try {
-    $pdo = new PDO(
-        'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4',
-        DB_USER,
-        DB_PASS,
-        [
-            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES   => false,
-        ]
-    );
-} catch (PDOException $ex) {
-    http_response_code(500);
-    die('Database connection failed: ' . htmlspecialchars($ex->getMessage(), ENT_QUOTES, 'UTF-8'));
+/**
+ * Run a statement that should "succeed if it can, silently skip if it cannot".
+ * Used by the auto-migration block so a missing column or pre-existing column
+ * never bricks the request — keeps migrations resilient to partial schemas.
+ */
+function db_try(PDO $pdo, string $sql): bool {
+    try { $pdo->exec($sql); return true; }
+    catch (PDOException $e) { return false; }
+}
+
+/**
+ * Probe whether a SELECT runs at all — used to test if a column exists
+ * (e.g. `SELECT new_col FROM table LIMIT 1`). Returns false on any error.
+ */
+function db_probe(PDO $pdo, string $sql): bool {
+    try { $pdo->query($sql); return true; }
+    catch (PDOException $e) { return false; }
 }
 
 // Auto-migration: Ensure new columns and tables exist
-if (!mysqli_query($conn, "SELECT is_verified FROM users LIMIT 1")) {
-    mysqli_query($conn, "ALTER TABLE users ADD COLUMN otp_code VARCHAR(6) DEFAULT NULL AFTER password");
-    mysqli_query($conn, "ALTER TABLE users ADD COLUMN is_verified TINYINT(1) DEFAULT 0 AFTER otp_code");
-    mysqli_query($conn, "UPDATE users SET is_verified = 1");
+if (!db_probe($pdo, "SELECT is_verified FROM users LIMIT 1")) {
+    db_try($pdo, "ALTER TABLE users ADD COLUMN otp_code VARCHAR(6) DEFAULT NULL AFTER password");
+    db_try($pdo, "ALTER TABLE users ADD COLUMN is_verified TINYINT(1) DEFAULT 0 AFTER otp_code");
+    db_try($pdo, "UPDATE users SET is_verified = 1");
 }
 // Owner, warden, and admin accounts are created manually and never go through OTP flow,
 // so ensure they are always marked verified regardless of seed order.
-mysqli_query($conn, "UPDATE users SET is_verified = 1 WHERE role IN ('owner', 'warden', 'admin') AND is_verified = 0");
-if (!mysqli_query($conn, "SELECT otp_expiry FROM users LIMIT 1")) {
-    mysqli_query($conn, "ALTER TABLE users ADD COLUMN otp_expiry DATETIME DEFAULT NULL AFTER otp_code");
+db_try($pdo, "UPDATE users SET is_verified = 1 WHERE role IN ('owner', 'warden', 'admin') AND is_verified = 0");
+if (!db_probe($pdo, "SELECT otp_expiry FROM users LIMIT 1")) {
+    db_try($pdo, "ALTER TABLE users ADD COLUMN otp_expiry DATETIME DEFAULT NULL AFTER otp_code");
 }
-if (!mysqli_query($conn, "SELECT otp_created_at FROM users LIMIT 1")) {
-    mysqli_query($conn, "ALTER TABLE users ADD COLUMN otp_created_at DATETIME DEFAULT NULL AFTER otp_expiry");
+if (!db_probe($pdo, "SELECT otp_created_at FROM users LIMIT 1")) {
+    db_try($pdo, "ALTER TABLE users ADD COLUMN otp_created_at DATETIME DEFAULT NULL AFTER otp_expiry");
 }
-if (!mysqli_query($conn, "SELECT otp_attempts FROM users LIMIT 1")) {
-    mysqli_query($conn, "ALTER TABLE users ADD COLUMN otp_attempts INT NOT NULL DEFAULT 0 AFTER otp_created_at");
+if (!db_probe($pdo, "SELECT otp_attempts FROM users LIMIT 1")) {
+    db_try($pdo, "ALTER TABLE users ADD COLUMN otp_attempts INT NOT NULL DEFAULT 0 AFTER otp_created_at");
 }
-if (!mysqli_query($conn, "SELECT reset_otp FROM users LIMIT 1")) {
-    mysqli_query($conn, "ALTER TABLE users ADD COLUMN reset_otp VARCHAR(6) DEFAULT NULL AFTER is_verified");
-    mysqli_query($conn, "ALTER TABLE users ADD COLUMN reset_otp_expiry DATETIME DEFAULT NULL AFTER reset_otp");
+if (!db_probe($pdo, "SELECT reset_otp FROM users LIMIT 1")) {
+    db_try($pdo, "ALTER TABLE users ADD COLUMN reset_otp VARCHAR(6) DEFAULT NULL AFTER is_verified");
+    db_try($pdo, "ALTER TABLE users ADD COLUMN reset_otp_expiry DATETIME DEFAULT NULL AFTER reset_otp");
 }
-if (!mysqli_query($conn, "SELECT token_version FROM users LIMIT 1")) {
-    mysqli_query($conn, "ALTER TABLE users ADD COLUMN token_version INT NOT NULL DEFAULT 0 AFTER photo");
+if (!db_probe($pdo, "SELECT token_version FROM users LIMIT 1")) {
+    db_try($pdo, "ALTER TABLE users ADD COLUMN token_version INT NOT NULL DEFAULT 0 AFTER photo");
 }
-if (!mysqli_query($conn, "SELECT fee_status FROM users LIMIT 1")) {
-    mysqli_query($conn, "ALTER TABLE users ADD COLUMN fee_status ENUM('paid','unpaid') DEFAULT 'unpaid' AFTER room_preference");
+if (!db_probe($pdo, "SELECT fee_status FROM users LIMIT 1")) {
+    db_try($pdo, "ALTER TABLE users ADD COLUMN fee_status ENUM('paid','unpaid') DEFAULT 'unpaid' AFTER room_preference");
 }
-if (!mysqli_query($conn, "SELECT cover_photo FROM users LIMIT 1")) {
-    mysqli_query($conn, "ALTER TABLE users ADD COLUMN cover_photo VARCHAR(255) DEFAULT NULL AFTER photo");
+if (!db_probe($pdo, "SELECT cover_photo FROM users LIMIT 1")) {
+    db_try($pdo, "ALTER TABLE users ADD COLUMN cover_photo VARCHAR(255) DEFAULT NULL AFTER photo");
 }
-if (!mysqli_query($conn, "SELECT description FROM users LIMIT 1")) {
-    mysqli_query($conn, "ALTER TABLE users ADD COLUMN description TEXT DEFAULT NULL AFTER cover_photo");
+if (!db_probe($pdo, "SELECT description FROM users LIMIT 1")) {
+    db_try($pdo, "ALTER TABLE users ADD COLUMN description TEXT DEFAULT NULL AFTER cover_photo");
 }
 
-mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `enquiries` (
+db_try($pdo, "CREATE TABLE IF NOT EXISTS `enquiries` (
   `id` INT(11) NOT NULL AUTO_INCREMENT,
   `name` VARCHAR(100) NOT NULL,
   `email` VARCHAR(100) DEFAULT NULL,
@@ -145,12 +155,12 @@ mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `enquiries` (
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-if (!mysqli_query($conn, "SELECT reply FROM enquiries LIMIT 1")) {
-    mysqli_query($conn, "ALTER TABLE enquiries ADD COLUMN reply TEXT DEFAULT NULL AFTER status");
-    mysqli_query($conn, "ALTER TABLE enquiries ADD COLUMN replied_at DATETIME DEFAULT NULL AFTER reply");
+if (!db_probe($pdo, "SELECT reply FROM enquiries LIMIT 1")) {
+    db_try($pdo, "ALTER TABLE enquiries ADD COLUMN reply TEXT DEFAULT NULL AFTER status");
+    db_try($pdo, "ALTER TABLE enquiries ADD COLUMN replied_at DATETIME DEFAULT NULL AFTER reply");
 }
 
-mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `daily_routine` (
+db_try($pdo, "CREATE TABLE IF NOT EXISTS `daily_routine` (
   `id` INT(11) NOT NULL AUTO_INCREMENT,
   `time_slot` VARCHAR(50) NOT NULL,
   `activity` VARCHAR(255) NOT NULL,
@@ -158,13 +168,13 @@ mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `daily_routine` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
-if (!mysqli_query($conn, "SELECT warden_status FROM leaves LIMIT 1")) {
-    mysqli_query($conn, "ALTER TABLE leaves ADD COLUMN warden_status ENUM('pending','approved','rejected') DEFAULT 'pending' AFTER reason");
-    mysqli_query($conn, "ALTER TABLE leaves ADD COLUMN owner_status ENUM('pending','approved','rejected') DEFAULT 'pending' AFTER warden_status");
-    mysqli_query($conn, "ALTER TABLE leaves DROP COLUMN status");
+if (!db_probe($pdo, "SELECT warden_status FROM leaves LIMIT 1")) {
+    db_try($pdo, "ALTER TABLE leaves ADD COLUMN warden_status ENUM('pending','approved','rejected') DEFAULT 'pending' AFTER reason");
+    db_try($pdo, "ALTER TABLE leaves ADD COLUMN owner_status ENUM('pending','approved','rejected') DEFAULT 'pending' AFTER warden_status");
+    db_try($pdo, "ALTER TABLE leaves DROP COLUMN status");
 }
 
-mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `staff` (
+db_try($pdo, "CREATE TABLE IF NOT EXISTS `staff` (
   `id` INT(11) NOT NULL AUTO_INCREMENT,
   `name` VARCHAR(100) NOT NULL,
   `role` VARCHAR(50) NOT NULL,
@@ -173,26 +183,14 @@ mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `staff` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
-if (!mysqli_query($conn, "SELECT allocation FROM staff LIMIT 1")) {
-        mysqli_query($conn, "ALTER TABLE staff ADD COLUMN allocation ENUM('Room','Canteen','Toilets','Garden','General') DEFAULT 'General' AFTER role");
+if (!db_probe($pdo, "SELECT allocation FROM staff LIMIT 1")) {
+    db_try($pdo, "ALTER TABLE staff ADD COLUMN allocation ENUM('Room','Canteen','Toilets','Garden','General') DEFAULT 'General' AFTER role");
 }
-if (mysqli_query($conn, "SELECT assigned_area FROM staff LIMIT 1")) {
-        mysqli_query($conn, "UPDATE staff SET allocation = assigned_area WHERE allocation IS NULL OR allocation = ''");
-}
-
-// Populate staff if empty
-$chk_staff = mysqli_query($conn, "SELECT COUNT(*) FROM staff");
-if ($chk_staff && mysqli_fetch_row($chk_staff)[0] == 0) {
-    mysqli_query($conn, "INSERT INTO staff (name, role, allocation) VALUES 
-        ('Ram Bahadur', 'Cleaner', 'Toilets'),
-        ('Shiva Thapa', 'Cook', 'Canteen'),
-        ('Maya Devi', 'Helper', 'Canteen'),
-        ('Kaji Sherpa', 'Gardener', 'Garden'),
-        ('Bhim Thapa', 'Security', 'General'),
-        ('Hari Prasad', 'Cleaner', 'Room')");
+if (db_probe($pdo, "SELECT assigned_area FROM staff LIMIT 1")) {
+    db_try($pdo, "UPDATE staff SET allocation = assigned_area WHERE allocation IS NULL OR allocation = ''");
 }
 
-mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `leaves` (
+db_try($pdo, "CREATE TABLE IF NOT EXISTS `leaves` (
   `id` INT(11) NOT NULL AUTO_INCREMENT,
   `student_id` INT(11) NOT NULL,
   `reason` TEXT NOT NULL,
@@ -207,12 +205,13 @@ mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `leaves` (
 
 // ─── Admin role + help tickets (Phase 2) ─────────
 // Add 'admin' to role ENUM if not present
-$_enumChk = mysqli_query($conn, "SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='role'");
-$_enumRow = $_enumChk ? mysqli_fetch_row($_enumChk) : null;
-if (!$_enumRow || strpos($_enumRow[0], "'admin'") === false) {
-    mysqli_query($conn, "ALTER TABLE users MODIFY COLUMN role ENUM('student','warden','owner','admin') NOT NULL DEFAULT 'student'");
+try {
+    $_enumType = $pdo->query("SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='role'")->fetchColumn();
+} catch (PDOException $e) { $_enumType = false; }
+if (!$_enumType || strpos($_enumType, "'admin'") === false) {
+    db_try($pdo, "ALTER TABLE users MODIFY COLUMN role ENUM('student','warden','owner','admin') NOT NULL DEFAULT 'student'");
 }
-mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `help_tickets` (
+db_try($pdo, "CREATE TABLE IF NOT EXISTS `help_tickets` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `user_id` INT NOT NULL,
   `role` VARCHAR(20) NOT NULL,
@@ -231,30 +230,32 @@ mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `help_tickets` (
 
 // ─── Sprint-2 schema ──────────────────────────────
 // Add 'maintenance' to rooms.status (TL-125) — MySQL ignores if column already has the value.
-mysqli_query($conn, "ALTER TABLE rooms MODIFY COLUMN status ENUM('available','occupied','maintenance') DEFAULT 'available'");
+db_try($pdo, "ALTER TABLE rooms MODIFY COLUMN status ENUM('available','occupied','maintenance') DEFAULT 'available'");
 // Soft-delete + price + capacity for room CRUD (referenced by upcoming features)
-if (!mysqli_query($conn, "SELECT deleted_at FROM rooms LIMIT 1")) {
-    mysqli_query($conn, "ALTER TABLE rooms ADD COLUMN deleted_at DATETIME DEFAULT NULL");
+if (!db_probe($pdo, "SELECT deleted_at FROM rooms LIMIT 1")) {
+    db_try($pdo, "ALTER TABLE rooms ADD COLUMN deleted_at DATETIME DEFAULT NULL");
 }
-if (!mysqli_query($conn, "SELECT capacity FROM rooms LIMIT 1")) {
-    mysqli_query($conn, "ALTER TABLE rooms ADD COLUMN capacity INT NOT NULL DEFAULT 1");
-    mysqli_query($conn, "UPDATE rooms SET capacity = CASE WHEN room_type='Double' THEN 2 WHEN room_type='Triple' THEN 3 ELSE 1 END");
+if (!db_probe($pdo, "SELECT capacity FROM rooms LIMIT 1")) {
+    db_try($pdo, "ALTER TABLE rooms ADD COLUMN capacity INT NOT NULL DEFAULT 1");
+    db_try($pdo, "UPDATE rooms SET capacity = CASE WHEN room_type='Double' THEN 2 WHEN room_type='Triple' THEN 3 ELSE 1 END");
 }
-if (!mysqli_query($conn, "SELECT price FROM rooms LIMIT 1")) {
-    mysqli_query($conn, "ALTER TABLE rooms ADD COLUMN price DECIMAL(10,2) NOT NULL DEFAULT 5000.00");
-    mysqli_query($conn, "UPDATE rooms SET price = CASE WHEN room_type='Single' THEN 5000 WHEN room_type='Double' THEN 4000 WHEN room_type='Triple' THEN 3000 ELSE 5000 END");
+if (!db_probe($pdo, "SELECT price FROM rooms LIMIT 1")) {
+    db_try($pdo, "ALTER TABLE rooms ADD COLUMN price DECIMAL(10,2) NOT NULL DEFAULT 5000.00");
+    db_try($pdo, "UPDATE rooms SET price = CASE WHEN room_type='Single' THEN 5000 WHEN room_type='Double' THEN 4000 WHEN room_type='Triple' THEN 3000 ELSE 5000 END");
 }
-if (!mysqli_query($conn, "SELECT notes FROM rooms LIMIT 1")) {
-    mysqli_query($conn, "ALTER TABLE rooms ADD COLUMN notes TEXT DEFAULT NULL AFTER price");
+if (!db_probe($pdo, "SELECT notes FROM rooms LIMIT 1")) {
+    db_try($pdo, "ALTER TABLE rooms ADD COLUMN notes TEXT DEFAULT NULL AFTER price");
 }
 // Unique room_number — guard with a check since the auto-seed may have inserted dupes earlier.
-$idxChk2 = mysqli_query($conn, "SHOW INDEX FROM rooms WHERE Key_name = 'uniq_room_number'");
-if ($idxChk2 && mysqli_num_rows($idxChk2) === 0) {
-    @mysqli_query($conn, "ALTER TABLE rooms ADD UNIQUE KEY uniq_room_number (room_number)");
+try {
+    $_uniq_exists = (bool)$pdo->query("SHOW INDEX FROM rooms WHERE Key_name = 'uniq_room_number'")->fetch();
+} catch (PDOException $e) { $_uniq_exists = true; }
+if (!$_uniq_exists) {
+    db_try($pdo, "ALTER TABLE rooms ADD UNIQUE KEY uniq_room_number (room_number)");
 }
 
 // Bookings — replaces simple users.room_id model going forward (legacy column kept).
-mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `bookings` (
+db_try($pdo, "CREATE TABLE IF NOT EXISTS `bookings` (
   `id` INT(11) NOT NULL AUTO_INCREMENT,
   `student_id` INT(11) NOT NULL,
   `room_id` INT(11) NOT NULL,
@@ -268,7 +269,7 @@ mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `bookings` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
 // Room audit log (TL-124).
-mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `room_audit_log` (
+db_try($pdo, "CREATE TABLE IF NOT EXISTS `room_audit_log` (
   `id` INT(11) NOT NULL AUTO_INCREMENT,
   `room_id` INT(11) DEFAULT NULL,
   `student_id` INT(11) DEFAULT NULL,
@@ -284,7 +285,7 @@ mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `room_audit_log` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
 // Room transfer requests (TL-111).
-mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `room_transfers` (
+db_try($pdo, "CREATE TABLE IF NOT EXISTS `room_transfers` (
   `id` INT(11) NOT NULL AUTO_INCREMENT,
   `student_id` INT(11) NOT NULL,
   `from_room_id` INT(11) DEFAULT NULL,
@@ -299,7 +300,7 @@ mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `room_transfers` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
 // Help tickets for admin support queue.
-mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `help_tickets` (
+db_try($pdo, "CREATE TABLE IF NOT EXISTS `help_tickets` (
   `id` INT(11) NOT NULL AUTO_INCREMENT,
   `user_id` INT(11) NOT NULL,
   `role` VARCHAR(20) NOT NULL DEFAULT 'student',
@@ -316,7 +317,7 @@ mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `help_tickets` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
 // Chatbot tables (TL-190–195).
-mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `chatbot_intents` (
+db_try($pdo, "CREATE TABLE IF NOT EXISTS `chatbot_intents` (
   `id` INT(11) NOT NULL AUTO_INCREMENT,
   `keywords` VARCHAR(500) NOT NULL,
   `response` TEXT NOT NULL,
@@ -324,11 +325,11 @@ mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `chatbot_intents` (
   `is_active` TINYINT(1) NOT NULL DEFAULT 1,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-if (!mysqli_query($conn, "SELECT action FROM chatbot_intents LIMIT 1")) {
-    mysqli_query($conn, "ALTER TABLE chatbot_intents ADD COLUMN action VARCHAR(40) DEFAULT NULL AFTER response");
+if (!db_probe($pdo, "SELECT action FROM chatbot_intents LIMIT 1")) {
+    db_try($pdo, "ALTER TABLE chatbot_intents ADD COLUMN action VARCHAR(40) DEFAULT NULL AFTER response");
 }
 
-mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `chatbot_conversations` (
+db_try($pdo, "CREATE TABLE IF NOT EXISTS `chatbot_conversations` (
   `id` INT(11) NOT NULL AUTO_INCREMENT,
   `student_id` INT(11) DEFAULT NULL,
   `session_id` VARCHAR(64) NOT NULL,
@@ -344,11 +345,13 @@ mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `chatbot_conversations` (
 // Seed chatbot intents — landing page focused (prospective students/parents).
 // Bumping the seed marker forces a re-seed when intents change.
 $cb_seed_marker = 'v6_prices_5000_4000_3000_2026';
-$chk_intents = mysqli_query($conn, "SELECT response FROM chatbot_intents WHERE keywords = '__seed_marker__' LIMIT 1");
-$cb_current  = ($chk_intents && ($row = mysqli_fetch_row($chk_intents))) ? $row[0] : null;
+try {
+    $cb_current = $pdo->query("SELECT response FROM chatbot_intents WHERE keywords = '__seed_marker__' LIMIT 1")->fetchColumn();
+} catch (PDOException $e) { $cb_current = false; }
+if ($cb_current === false) { $cb_current = null; }
 if ($cb_current !== $cb_seed_marker) {
-    mysqli_query($conn, "DELETE FROM chatbot_intents");
-    mysqli_query($conn, "INSERT INTO chatbot_intents (keywords, response, action, priority) VALUES
+    db_try($pdo, "DELETE FROM chatbot_intents");
+    db_try($pdo, "INSERT INTO chatbot_intents (keywords, response, action, priority) VALUES
         ('__seed_marker__', '$cb_seed_marker', NULL, 0),
         ('hi,hello,hey,namaste,start', 'Namaste! I can help you learn about HMS Hostel — fees, rooms, meals, location, security and how to apply. Tap a topic below or type your question.', NULL, 100),
         ('fee,fees,rent,price,cost,monthly,charge,how much', 'Monthly fees depend on room type — Single NPR 5,000, Double NPR 4,000, Triple NPR 3,000 per month. All include three meals a day, fiber WiFi, laundry twice a week, electricity and water. No hidden charges. A one-time refundable deposit of NPR 5,000 is collected at check-in. Contact the front desk for payment arrangements.', NULL, 95),
@@ -368,24 +371,27 @@ if ($cb_current !== $cb_seed_marker) {
 }
 
 // Performance indexes (TL-185–188). CREATE INDEX is not idempotent in older MySQL, so wrap in checks.
-$idxChk = function($table, $name) use ($conn) {
-    $r = mysqli_query($conn, "SHOW INDEX FROM `$table` WHERE Key_name = '$name'");
-    return $r && mysqli_num_rows($r) > 0;
+$idxChk = function($table, $name) use ($pdo) {
+    try {
+        return (bool)$pdo->query("SHOW INDEX FROM `$table` WHERE Key_name = '$name'")->fetch();
+    } catch (PDOException $e) {
+        return false;
+    }
 };
-if (!$idxChk('rooms', 'idx_status_deleted'))            mysqli_query($conn, "CREATE INDEX idx_status_deleted ON rooms(status, deleted_at)");
-if (!$idxChk('bookings', 'idx_student_status'))         mysqli_query($conn, "CREATE INDEX idx_student_status ON bookings(student_id, status)");
-if (!$idxChk('attendance', 'idx_student_date'))         mysqli_query($conn, "CREATE INDEX idx_student_date ON attendance(student_id, date)");
+if (!$idxChk('rooms', 'idx_status_deleted'))            db_try($pdo, "CREATE INDEX idx_status_deleted ON rooms(status, deleted_at)");
+if (!$idxChk('bookings', 'idx_student_status'))         db_try($pdo, "CREATE INDEX idx_student_status ON bookings(student_id, status)");
+if (!$idxChk('attendance', 'idx_student_date'))         db_try($pdo, "CREATE INDEX idx_student_date ON attendance(student_id, date)");
 // Room photo column
-if (!mysqli_query($conn, "SELECT photo FROM rooms LIMIT 1")) {
-    mysqli_query($conn, "ALTER TABLE rooms ADD COLUMN photo VARCHAR(255) DEFAULT NULL AFTER notes");
+if (!db_probe($pdo, "SELECT photo FROM rooms LIMIT 1")) {
+    db_try($pdo, "ALTER TABLE rooms ADD COLUMN photo VARCHAR(255) DEFAULT NULL AFTER notes");
 }
 // Bookings approval columns
-if (!mysqli_query($conn, "SELECT approved_by FROM bookings LIMIT 1")) {
-    mysqli_query($conn, "ALTER TABLE bookings ADD COLUMN approved_by INT DEFAULT NULL AFTER notes");
-    mysqli_query($conn, "ALTER TABLE bookings ADD COLUMN approved_at DATETIME DEFAULT NULL AFTER approved_by");
+if (!db_probe($pdo, "SELECT approved_by FROM bookings LIMIT 1")) {
+    db_try($pdo, "ALTER TABLE bookings ADD COLUMN approved_by INT DEFAULT NULL AFTER notes");
+    db_try($pdo, "ALTER TABLE bookings ADD COLUMN approved_at DATETIME DEFAULT NULL AFTER approved_by");
 }
 // ─── Payments system (Phase 3) ───────────────────
-mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `payments` (
+db_try($pdo, "CREATE TABLE IF NOT EXISTS `payments` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `student_id` INT NOT NULL,
   `room_id` INT NOT NULL,
@@ -403,7 +409,7 @@ mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `payments` (
   KEY `idx_billing` (`billing_month`, `status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
-mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `monthly_fees` (
+db_try($pdo, "CREATE TABLE IF NOT EXISTS `monthly_fees` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `student_id` INT NOT NULL,
   `room_id` INT NOT NULL,
@@ -422,7 +428,7 @@ mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `monthly_fees` (
 // direction='charge'  → student owes us (moved to a pricier room)
 // direction='credit'  → we owe the student (moved to a cheaper room)
 // status: 'pending' until paid/refunded, then 'settled'
-mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `transfer_adjustments` (
+db_try($pdo, "CREATE TABLE IF NOT EXISTS `transfer_adjustments` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `student_id` INT NOT NULL,
   `transfer_id` INT DEFAULT NULL,
@@ -444,9 +450,11 @@ mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `transfer_adjustments` (
 
 
 // Seed routine if empty
-$check_routine = mysqli_query($conn, "SELECT id FROM daily_routine LIMIT 1");
-if (mysqli_num_rows($check_routine) == 0) {
-    mysqli_query($conn, "INSERT INTO daily_routine (time_slot, activity, is_school_hours) VALUES 
+try {
+    $_routine_count = (int)$pdo->query("SELECT COUNT(*) FROM daily_routine")->fetchColumn();
+} catch (PDOException $e) { $_routine_count = -1; }
+if ($_routine_count === 0) {
+    db_try($pdo, "INSERT INTO daily_routine (time_slot, activity, is_school_hours) VALUES
         ('06:00 AM - 07:00 AM', 'Wake up, Exercise & Morning Study', 0),
         ('07:00 AM - 03:00 PM', 'School/College Hours', 1),
         ('03:30 PM - 05:00 PM', 'Snacks & Personal Refreshment', 0),
@@ -455,87 +463,73 @@ if (mysqli_num_rows($check_routine) == 0) {
         ('09:00 PM', 'Lights Out / Final Personal Study', 0)");
 }
 
-// Seed Students & Rooms if empty
-$check_students = mysqli_query($conn, "SELECT id FROM users WHERE role='student'");
-if (mysqli_num_rows($check_students) < 5) {
-    // Rooms 101-115
+// Seed rooms only on a fresh install (rooms table empty). Once the warden
+// edits/deletes a room, it stays that way — we don't repopulate.
+try {
+    $_room_count = (int)$pdo->query("SELECT COUNT(*) FROM rooms")->fetchColumn();
+} catch (PDOException $e) { $_room_count = -1; }
+if ($_room_count === 0) {
+    $_room_ins = $pdo->prepare("INSERT IGNORE INTO rooms (room_number, room_type, floor, status) VALUES (?, ?, ?, 'available')");
+    // Floor 1: rooms 101-115 (alternating Double/Single)
     for ($i = 101; $i <= 115; $i++) {
         $type = ($i % 2 == 0) ? 'Double' : 'Single';
-        mysqli_query($conn, "INSERT IGNORE INTO rooms (room_number, room_type, floor, status) VALUES ('$i', '$type', 1, 'available')");
+        $_room_ins->execute([(string)$i, $type, 1]);
     }
-    // Rooms 201-215
+    // Floor 2: rooms 201-215 (alternating Double/Single)
     for ($i = 201; $i <= 215; $i++) {
         $type = ($i % 2 == 0) ? 'Double' : 'Single';
-        mysqli_query($conn, "INSERT IGNORE INTO rooms (room_number, room_type, floor, status) VALUES ('$i', '$type', 2, 'available')");
+        $_room_ins->execute([(string)$i, $type, 2]);
     }
-
-    $nepali_names = [
-        'Aadarsh Thapa', 'Binita Shrestha', 'Chandra Gurung', 'Deepika Rai', 'Eshita Tamang',
-        'Ganesh Mahat', 'Hari Prasad', 'Ishwar Khatri', 'Janaki Pandey', 'Kiran Lama',
-        'Laxmi Devi', 'Manish Kc', 'Nabin Regmi', 'Ojaswi Shah', 'Pramod Giri',
-        'Ramesh BK', 'Sita Ram', 'Tulsi Ram', 'Umesh Magar', 'Vivek Rana'
+    // Floor 3: 10 rooms with explicit Single/Double/Triple capacity and price
+    $floor3_rooms = [
+        ['301', 'Single', 1, 5000.00],
+        ['302', 'Double', 2, 4000.00],
+        ['303', 'Triple', 3, 3000.00],
+        ['304', 'Single', 1, 5000.00],
+        ['305', 'Double', 2, 4000.00],
+        ['306', 'Triple', 3, 3000.00],
+        ['307', 'Single', 1, 5000.00],
+        ['308', 'Double', 2, 4000.00],
+        ['309', 'Triple', 3, 3000.00],
+        ['310', 'Triple', 3, 3000.00],
     ];
-    $pass = password_hash('Test1234', PASSWORD_DEFAULT);
-    foreach ($nepali_names as $idx => $name) {
-        $email = strtolower(explode(' ', $name)[0]) . $idx . '@student.com';
-        $phone = '98' . rand(10000000, 99999999);
-        mysqli_query($conn, "INSERT IGNORE INTO users (name, email, password, role, student_phone, room_status, is_verified)
-                           VALUES ('$name', '$email', '$pass', 'student', '$phone', 'pending', 1)");
-    }
-}
-
-// Floor 3 — additional 10 rooms with mixed Single/Double/Triple capacity.
-// Pricing (v2): Single 5000, Double 4000, Triple 3000.
-// Idempotent via INSERT IGNORE on uniq_room_number (added by sprint-2 migration).
-$floor3_rooms = [
-    ['301', 'Single', 1, 5000.00],
-    ['302', 'Double', 2, 4000.00],
-    ['303', 'Triple', 3, 3000.00],
-    ['304', 'Single', 1, 5000.00],
-    ['305', 'Double', 2, 4000.00],
-    ['306', 'Triple', 3, 3000.00],
-    ['307', 'Single', 1, 5000.00],
-    ['308', 'Double', 2, 4000.00],
-    ['309', 'Triple', 3, 3000.00],
-    ['310', 'Triple', 3, 3000.00],
-];
-$f3_ins = mysqli_prepare($conn,
-    "INSERT IGNORE INTO rooms (room_number, room_type, floor, status, capacity, price)
-     VALUES (?, ?, 3, 'available', ?, ?)");
-if ($f3_ins) {
+    $_f3_ins = $pdo->prepare(
+        "INSERT IGNORE INTO rooms (room_number, room_type, floor, status, capacity, price)
+         VALUES (?, ?, 3, 'available', ?, ?)"
+    );
     foreach ($floor3_rooms as $r) {
-        mysqli_stmt_bind_param($f3_ins, 'ssid', $r[0], $r[1], $r[2], $r[3]);
-        mysqli_stmt_execute($f3_ins);
+        $_f3_ins->execute([$r[0], $r[1], $r[2], $r[3]]);
     }
-    mysqli_stmt_close($f3_ins);
 }
 
 // ── Pricing refresh (v2): Single 5000, Double 4000, Triple 3000 ─────────────
 // Gated by a version marker in app_settings so warden's per-room price overrides
 // aren't clobbered on subsequent page loads.
-mysqli_query($conn, "CREATE TABLE IF NOT EXISTS `app_settings` (
+db_try($pdo, "CREATE TABLE IF NOT EXISTS `app_settings` (
     `key` VARCHAR(64) NOT NULL PRIMARY KEY,
     `value` VARCHAR(255) NOT NULL,
     `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
 $_pricing_target = 'v2_2026';
-$_pv = mysqli_query($conn, "SELECT `value` FROM app_settings WHERE `key` = 'pricing_version' LIMIT 1");
-$_pv_cur = ($_pv && ($row = mysqli_fetch_row($_pv))) ? $row[0] : null;
+try {
+    $_pv_cur = $pdo->query("SELECT `value` FROM app_settings WHERE `key` = 'pricing_version' LIMIT 1")->fetchColumn();
+} catch (PDOException $e) { $_pv_cur = false; }
+if ($_pv_cur === false) { $_pv_cur = null; }
 if ($_pv_cur !== $_pricing_target) {
     // Reset prices per room type
-    mysqli_query($conn, "UPDATE rooms SET price = CASE
+    db_try($pdo, "UPDATE rooms SET price = CASE
         WHEN room_type = 'Single' THEN 5000.00
         WHEN room_type = 'Double' THEN 4000.00
         WHEN room_type = 'Triple' THEN 3000.00
         ELSE price END");
     // Sync any unpaid/overdue monthly_fees so the current bill reflects the new price
-    mysqli_query($conn, "UPDATE monthly_fees mf
+    db_try($pdo, "UPDATE monthly_fees mf
         JOIN rooms r ON r.id = mf.room_id
         SET mf.amount = r.price
         WHERE mf.status IN ('unpaid','overdue')");
     // Mark migration done
-    mysqli_query($conn, "INSERT INTO app_settings (`key`, `value`) VALUES ('pricing_version', 'v2_2026')
+    db_try($pdo, "INSERT INTO app_settings (`key`, `value`) VALUES ('pricing_version', 'v2_2026')
                          ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)");
 }
 
@@ -844,12 +838,15 @@ function get_svg_icon($name) {
  *                             highlight when you're on that page.
  * @return string  HTML for the sidebar; empty string if user not logged in.
  */
-function render_sidebar($active_page) {
+function render_sidebar($active_page, $base_prefix = '') {
     $auth = get_auth();
     if (!$auth) return '';
 
     // Per-role menu definitions. Each row: ['href', 'label', 'icon'].
     // Hrefs are resolved RELATIVE to the calling page's folder.
+    // When the sidebar is rendered from outside the role folder (e.g.
+    // auth/profile.php), the caller passes $base_prefix like "../student/"
+    // so the relative links still land in the role folder.
     $menus = [
         'student' => [
             ['href' => 'dashboard.php',     'label' => 'Dashboard', 'icon' => 'home'],
@@ -895,7 +892,7 @@ function render_sidebar($active_page) {
     $roleLabel = ucfirst($auth['role']);
     $html = '<div class="sidebar">';
     $html .= '<div class="sidebar-branding">';
-    $html .= '<a class="sidebar-logo" href="dashboard.php">HMS</a>';
+    $html .= '<a class="sidebar-logo" href="' . $base_prefix . 'dashboard.php">HMS</a>';
     $html .= '<div class="sidebar-meta"><span class="sidebar-kicker">Student Residence</span><span class="sidebar-role">' . e($roleLabel) . ' Portal</span></div>';
     $html .= '</div>';
     $html .= '<button class="sidebar-toggle" type="button" aria-label="Toggle menu">☰</button>';
@@ -906,7 +903,7 @@ function render_sidebar($active_page) {
         $active = (basename($active_page) === basename($m['href'])) ? 'class="active"' : '';
         $icon_name = $m['icon'] ?? 'home';
         $icon_svg = get_svg_icon($icon_name);
-        $html .= '<li><a href="' . $m['href'] . '" ' . $active . '><span class="menu-icon">' . $icon_svg . '</span>' . $m['label'] . '</a></li>';
+        $html .= '<li><a href="' . $base_prefix . $m['href'] . '" ' . $active . '><span class="menu-icon">' . $icon_svg . '</span>' . $m['label'] . '</a></li>';
     }
     $html .= '<li class="sidebar-spacer"></li>';
     $html .= '<li><span class="sidebar-user">' . e($auth['name']) . '</span></li>';

@@ -1,5 +1,6 @@
 <?php
 require_once '../db.php';
+require_once '../auth/mailer.php';
 require_role('owner');
 
 $error = '';
@@ -8,22 +9,85 @@ $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_read'])) {
     csrf_verify($_POST['csrf_token'] ?? '');
     $id = (int)$_POST['enquiry_id'];
-    mysqli_query($conn, "UPDATE enquiries SET status = 'read' WHERE id = $id");
+    $pdo->prepare("UPDATE enquiries SET status = 'read' WHERE id = ?")->execute([$id]);
     header("Location: enquiries.php"); exit;
 }
 
-// Send Reply
+// ── DEBUG: log every POST that arrives so we can see what's happening ─────
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    @file_put_contents(
+        __DIR__ . '/../logs/enquiry_debug.log',
+        '[' . date('Y-m-d H:i:s') . "] POST keys=" . implode(',', array_keys($_POST))
+            . " send_reply=" . (isset($_POST['send_reply']) ? 'yes' : 'no')
+            . " enquiry_id=" . ($_POST['enquiry_id'] ?? 'NONE')
+            . " reply_len=" . strlen($_POST['reply_message'] ?? '')
+            . " csrf_in=" . substr($_POST['csrf_token'] ?? '', 0, 8)
+            . " csrf_session=" . substr($_SESSION['csrf'] ?? '', 0, 8)
+            . PHP_EOL,
+        FILE_APPEND
+    );
+}
+
+// Send Reply — saves the reply, emails the enquirer, marks status as replied
 if (isset($_POST['send_reply'])) {
-    csrf_verify($_POST['csrf_token'] ?? '');
+    // Verify CSRF, but log the failure if it happens (instead of silent die)
+    try {
+        csrf_verify($_POST['csrf_token'] ?? '');
+    } catch (Throwable $csrfEx) {
+        @file_put_contents(__DIR__ . '/../logs/enquiry_debug.log',
+            '[' . date('Y-m-d H:i:s') . "] CSRF FAIL\n", FILE_APPEND);
+        throw $csrfEx;
+    }
     $id = (int)$_POST['enquiry_id'];
     $reply_msg = trim($_POST['reply_message'] ?? '');
-    $to_email = trim($_POST['to_email'] ?? '');
 
     if (!$reply_msg) {
         $error = 'Reply message is required.';
     } else {
-        mysqli_query($conn, "UPDATE enquiries SET status = 'replied' WHERE id = $id");
-        $success = $to_email ? "Reply recorded for $to_email." : 'Reply recorded.';
+        // Fetch the enquiry so we have the recipient name + email + original message
+        $look = $pdo->prepare("SELECT id, name, email, message FROM enquiries WHERE id = ? LIMIT 1");
+        $look->execute([$id]);
+        $enq = $look->fetch();
+
+        if (!$enq) {
+            $error = 'Enquiry not found.';
+        } elseif (empty($enq['email'])) {
+            $error = 'This enquiry has no email address — cannot send a reply.';
+        } else {
+            // Persist the reply text + timestamp + status in one update
+            $upd = $pdo->prepare(
+                "UPDATE enquiries SET reply = ?, replied_at = NOW(), status = 'replied' WHERE id = ?"
+            );
+            $upd->execute([$reply_msg, $id]);
+
+            // Build a branded HTML email and send it via PHPMailer/SMTP
+            try {
+                $body = '<p>Thanks for getting in touch with HMS — here is our reply to your enquiry.</p>'
+                      . '<table style="width:100%;border-collapse:collapse;font-size:14px;margin-top:8px;">'
+                      .   '<tr><td style="padding:8px 0;color:#64748b;width:130px;vertical-align:top;">Your message</td>'
+                      .       '<td style="padding:8px 0;">' . nl2br(htmlspecialchars($enq['message'])) . '</td></tr>'
+                      .   '<tr style="background:#f8fafc;"><td style="padding:8px 6px;color:#64748b;vertical-align:top;">Our reply</td>'
+                      .       '<td style="padding:8px 6px;font-weight:600;">' . nl2br(htmlspecialchars($reply_msg)) . '</td></tr>'
+                      . '</table>';
+
+                $html = render_branded_email([
+                    'name'      => $enq['name'],
+                    'kicker'    => 'Enquiry reply',
+                    'title'     => 'We have replied to your enquiry',
+                    'intro'     => 'Hello ' . htmlspecialchars($enq['name']) . ', thanks for reaching out.',
+                    'body_html' => $body,
+                    'footnote'  => 'Have more questions? Just reply to this email and we will get back to you.',
+                    'accent'    => '#2563eb',
+                    'accent2'   => '#1d4ed8',
+                ]);
+
+                send_app_mail($enq['email'], $enq['name'], 'Reply to your HMS enquiry', $html);
+                $success = 'Reply sent to ' . $enq['email'] . '.';
+            } catch (Throwable $mailEx) {
+                // Reply is saved in DB even if mail fails — show a clear note so owner knows.
+                $error = 'Reply saved, but email failed to send: ' . $mailEx->getMessage();
+            }
+        }
     }
 }
 
@@ -31,12 +95,11 @@ if (isset($_POST['send_reply'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete'])) {
     csrf_verify($_POST['csrf_token'] ?? '');
     $id = (int)$_POST['enquiry_id'];
-    mysqli_query($conn, "DELETE FROM enquiries WHERE id = $id");
+    $pdo->prepare("DELETE FROM enquiries WHERE id = ?")->execute([$id]);
     header("Location: enquiries.php"); exit;
 }
 
-$res = mysqli_query($conn, "SELECT * FROM enquiries ORDER BY created_at DESC");
-$enquiries = []; while($e = mysqli_fetch_assoc($res)) $enquiries[] = $e;
+$enquiries = $pdo->query("SELECT * FROM enquiries ORDER BY created_at DESC")->fetchAll();
 
 $active = 'enquiries.php';
 ?>

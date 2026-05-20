@@ -19,44 +19,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($complaint_id <= 0) {
         $error = 'Invalid complaint.';
     } elseif ($action === 'delete') {
-        $stmt = mysqli_prepare($conn, "DELETE FROM complaints WHERE id = ?");
-        mysqli_stmt_bind_param($stmt, 'i', $complaint_id);
-        if (mysqli_stmt_execute($stmt)) {
+        try {
+            $pdo->prepare("DELETE FROM complaints WHERE id = ?")->execute([$complaint_id]);
             $success = 'Complaint deleted.';
-        } else {
+        } catch (PDOException $e) {
             $error = 'Failed to delete. Please try again.';
         }
-        mysqli_stmt_close($stmt);
     } else {
         $new_status = $_POST['status'] ?? '';
         $reply      = trim($_POST['reply'] ?? '');
         if (!in_array($new_status, ['open', 'resolved'])) {
             $error = 'Invalid status selected.';
         } else {
-            $stmt = mysqli_prepare($conn,
-                "UPDATE complaints SET status = ?, reply = ?
-                 WHERE id = ?");
-            mysqli_stmt_bind_param($stmt, 'ssi',
-                $new_status, $reply, $complaint_id);
-            if (mysqli_stmt_execute($stmt)) {
+            try {
+                $pdo->prepare(
+                    "UPDATE complaints SET status = ?, reply = ?
+                     WHERE id = ?"
+                )->execute([$new_status, $reply, $complaint_id]);
                 $success = 'Complaint updated successfully.';
-            } else {
+            } catch (PDOException $e) {
                 $error = 'Failed to update. Please try again.';
             }
-            mysqli_stmt_close($stmt);
         }
     }
 }
 
 // Fetch all complaints with student name
-$complaints = [];
-$res = mysqli_query($conn,
+$complaints = $pdo->query(
     "SELECT c.id, u.name AS student_name, c.subject,
             c.message, c.status, c.reply, c.created_at
      FROM complaints c
      JOIN users u ON u.id = c.student_id
-     ORDER BY c.created_at DESC");
-while ($r = mysqli_fetch_assoc($res)) $complaints[] = $r;
+     ORDER BY c.created_at DESC"
+)->fetchAll();
 
 // Count by status
 $total    = count($complaints);
