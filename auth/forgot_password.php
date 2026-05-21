@@ -64,6 +64,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .auth-card { background: white; padding: 3rem; border-radius: 24px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
         .auth-header h1 { font-size: 2rem; font-weight: 900; color: var(--brand); margin-bottom: 0.5rem; text-align: center; }
         .auth-header p { color: var(--text-muted); text-align: center; margin-bottom: 2rem; }
+        .auth-error {
+            display: flex; align-items: center; gap: 0.55rem;
+            background: var(--danger-soft); color: #b91c1c;
+            border: 1px solid rgba(185, 28, 28, 0.18);
+            border-radius: 10px; padding: 0.7rem 0.9rem;
+            font-size: 0.85rem; font-weight: 500; line-height: 1.4;
+            margin-bottom: 1.25rem;
+        }
+        .auth-error svg { flex: 0 0 auto; width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
     </style>
 </head>
 <body>
@@ -73,7 +82,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <p>Reset your password</p>
         </div>
 
-        <?php if ($error): ?><div class="alert alert-error" style="background:var(--danger-soft); color:#b91c1c; padding:1rem; border-radius:12px; margin-bottom:1.5rem;"><?= e($error) ?></div><?php endif; ?>
+        <?php if ($error): ?>
+            <div class="auth-error" role="alert" aria-live="assertive">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span><?= e($error) ?></span>
+            </div>
+        <?php endif; ?>
 
         <form method="POST">
             <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
