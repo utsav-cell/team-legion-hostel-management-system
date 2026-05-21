@@ -137,5 +137,8 @@ $complaints = $stmt2->fetchAll();
         <?php endif; ?>
     </div>
 </div>
+
+<?= render_footer() ?>
+<script src="../js/script.js"></script>
 </body>
 </html>

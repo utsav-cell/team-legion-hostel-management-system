@@ -132,5 +132,8 @@ $pct    = $total > 0 ? round($present / $total * 100, 1) : 0;
         <?php endif; ?>
     </div>
 </div>
+
+<?= render_footer() ?>
+<script src="../js/script.js"></script>
 </body>
 </html>

@@ -40,7 +40,12 @@ try {
         'body_html' => $body,
         'footnote'  => 'Didn\'t request this? You can safely ignore — no changes have been made to your account.',
     ]);
-    send_app_mail($email, $u['name'], 'Your new HMS verification code: ' . $otp, $html);
+    try {
+        send_app_mail($email, $u['name'], 'Your new HMS verification code: ' . $otp, $html);
+    } catch (Exception $mailEx) {
+        mailer_log('RESEND fail email=' . $email . ' :: ' . $mailEx->getMessage());
+        throw new Exception('We couldn\'t resend the code right now. Please try again in a few moments.');
+    }
 
     $pdo->prepare('UPDATE users SET otp_code = ?, otp_expiry = ?, otp_created_at = NOW(), otp_attempts = 0 WHERE id = ?')
         ->execute([$otp, $otp_expiry, (int)$u['id']]);

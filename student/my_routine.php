@@ -44,5 +44,8 @@ $active = 'my_routine.php';
         <?php endforeach; ?>
     </div>
 </div>
+
+<?= render_footer() ?>
+<script src="../js/script.js"></script>
 </body>
 </html>

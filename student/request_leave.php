@@ -39,6 +39,7 @@ $active = 'request_leave.php';
 </head>
 <body>
 <?php echo render_sidebar($active); ?>
+<?= render_topbar() ?>
 <div class="container">
     <div class="page-header">
         <h1>Leave Request</h1>
@@ -94,5 +95,8 @@ $active = 'request_leave.php';
         </table>
     </div>
 </div>
+
+<?= render_footer() ?>
+<script src="../js/script.js"></script>
 </body>
 </html>
