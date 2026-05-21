@@ -135,7 +135,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($pdo->inTransaction()) {
                     $pdo->rollBack();
                 }
-                throw new Exception('Could not send verification email. ' . $regEx->getMessage());
+                mailer_log('REGISTER fail email=' . $email . ' :: ' . $regEx->getMessage());
+                throw new Exception('We couldn\'t complete your registration right now. Please try again in a few moments.');
             }
 
             $res['success']  = true;

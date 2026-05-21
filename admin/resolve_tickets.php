@@ -243,7 +243,7 @@ $focus_id = (int)($_GET['id'] ?? 0);
     <?php endif; ?>
 </div>
 
-<?= render_footer() ?>
+<?= render_footer(true) ?>
 
 <script>
 function toggleResolveForm(id) {

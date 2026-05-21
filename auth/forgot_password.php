@@ -36,7 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             send_app_mail($email, $u['name'], 'Reset your password - HMS', $body);
         } catch (Exception $mailEx) {
-            throw new Exception('Could not send reset email. ' . $mailEx->getMessage());
+            mailer_log('RESET fail email=' . $email . ' :: ' . $mailEx->getMessage());
+            throw new Exception('We couldn\'t send the reset email right now. Please try again in a few moments.');
         }
 
         $upd = $pdo->prepare(

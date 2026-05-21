@@ -1401,6 +1401,11 @@ html[data-theme="dark"] .page-info-band {
 .app-footer .af-spacer { flex: 1; min-width: 1rem; }
 .app-footer .af-copy { color: var(--muted); }
 
+/* Pinned variant — used on pages that render the slim footer without the
+   marketing info-band. Pushes the footer to the bottom of the flex body so
+   it does not float in the middle of short pages. */
+.app-footer--pinned { margin-top: auto; }
+
 /* ─── Responsive ──────────────────────────────────────────────────── */
 @media (max-width: 1024px) {
     .hero-panel { grid-template-columns: 1fr; }

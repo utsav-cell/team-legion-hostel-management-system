@@ -1169,8 +1169,19 @@ function esewa_sign(string $data): string {
 /**
  * Render a minimal footer for inner pages.
  */
-function render_footer(): string {
+function render_footer(bool $minimal = false): string {
     $year = date('Y');
+    if ($minimal) {
+        return <<<HTML
+<footer class="app-footer app-footer--pinned">
+    <span class="af-brand"><span class="af-logo">HMS</span>Student Residence</span>
+    <span class="af-sep">&middot;</span>
+    <span class="af-loc">Thamel, Kathmandu</span>
+    <span class="af-spacer"></span>
+    <span class="af-copy">&copy; {$year} HMS &middot; All rights reserved</span>
+</footer>
+HTML;
+    }
     return <<<HTML
 <section class="page-info-band" aria-label="Hostel info">
     <div class="pib-inner">
